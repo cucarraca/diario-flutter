@@ -1024,6 +1024,8 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
   late stt.SpeechToText _speech;
   bool _isListening = false;
   bool _speechEnabled = false;
+  double _textScaleFactor = 1.0;
+  bool _isZoomMode = false;
 
   @override
   void initState() {
@@ -1106,6 +1108,36 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
+            icon: Icon(_isZoomMode ? Icons.zoom_out : Icons.zoom_in),
+            onPressed: () {
+              setState(() {
+                _isZoomMode = !_isZoomMode;
+                if (!_isZoomMode) _textScaleFactor = 1.0;
+              });
+            },
+            tooltip: _isZoomMode ? 'Salir del modo zoom' : 'Activar modo zoom',
+          ),
+          if (_isZoomMode) ...[
+            IconButton(
+              icon: const Icon(Icons.text_increase),
+              onPressed: () {
+                setState(() {
+                  _textScaleFactor = (_textScaleFactor + 0.1).clamp(0.7, 2.5);
+                });
+              },
+              tooltip: 'Aumentar texto',
+            ),
+            IconButton(
+              icon: const Icon(Icons.text_decrease),
+              onPressed: () {
+                setState(() {
+                  _textScaleFactor = (_textScaleFactor - 0.1).clamp(0.7, 2.5);
+                });
+              },
+              tooltip: 'Disminuir texto',
+            ),
+          ],
+          IconButton(
             icon: const Icon(Icons.save),
             onPressed: _guardarEntrada,
           ),
@@ -1117,6 +1149,43 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
           key: _formKey,
           child: Column(
             children: [
+              // Indicador de zoom si está activo
+              if (_isZoomMode)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.zoom_in, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Modo Zoom Activo',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${(_textScaleFactor * 100).toInt()}%',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
               TextFormField(
                 controller: _tituloController,
                 decoration: const InputDecoration(
@@ -1124,6 +1193,7 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
                   border: OutlineInputBorder(),
                 ),
                 textCapitalization: TextCapitalization.sentences,
+                style: TextStyle(fontSize: 16 * _textScaleFactor),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Por favor ingresa un título';
@@ -1132,37 +1202,86 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
                 },
               ),
               const SizedBox(height: 16),
+              
               Expanded(
                 child: Stack(
                   children: [
-                    TextFormField(
-                      controller: _contenidoController,
-                      decoration: InputDecoration(
-                        labelText: 'Escribe tus pensamientos...',
-                        border: const OutlineInputBorder(),
-                        alignLabelWithHint: true,
-                        suffixIcon: _speechEnabled
-                          ? IconButton(
-                              onPressed: _isListening ? _stopListening : _startListening,
-                              icon: Icon(
-                                _isListening ? Icons.mic : Icons.mic_none,
-                                color: _isListening ? Colors.red : null,
+                    _isZoomMode
+                        ? InteractiveViewer(
+                            panEnabled: true,
+                            scaleEnabled: true,
+                            minScale: 0.7,
+                            maxScale: 3.0,
+                            onInteractionUpdate: (ScaleUpdateDetails details) {
+                              setState(() {
+                                _textScaleFactor = details.scale.clamp(0.7, 2.5);
+                              });
+                            },
+                            child: SingleChildScrollView(
+                              child: TextFormField(
+                                controller: _contenidoController,
+                                decoration: InputDecoration(
+                                  labelText: 'Escribe tus pensamientos...',
+                                  border: const OutlineInputBorder(),
+                                  alignLabelWithHint: true,
+                                  suffixIcon: _speechEnabled
+                                    ? IconButton(
+                                        onPressed: _isListening ? _stopListening : _startListening,
+                                        icon: Icon(
+                                          _isListening ? Icons.mic : Icons.mic_none,
+                                          color: _isListening ? Colors.red : null,
+                                        ),
+                                        tooltip: _isListening ? 'Parar dictado' : 'Iniciar dictado de voz',
+                                      )
+                                    : null,
+                                ),
+                                maxLines: null,
+                                minLines: 10,
+                                textAlignVertical: TextAlignVertical.top,
+                                textCapitalization: TextCapitalization.sentences,
+                                style: TextStyle(
+                                  fontSize: 16 * _textScaleFactor,
+                                  height: 1.4,
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Por favor escribe algo en tu entrada';
+                                  }
+                                  return null;
+                                },
                               ),
-                              tooltip: _isListening ? 'Parar dictado' : 'Iniciar dictado de voz',
-                            )
-                          : null,
-                      ),
-                      maxLines: null,
-                      expands: true,
-                      textAlignVertical: TextAlignVertical.top,
-                      textCapitalization: TextCapitalization.sentences,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Por favor escribe algo en tu entrada';
-                        }
-                        return null;
-                      },
-                    ),
+                            ),
+                          )
+                        : TextFormField(
+                            controller: _contenidoController,
+                            decoration: InputDecoration(
+                              labelText: 'Escribe tus pensamientos...',
+                              border: const OutlineInputBorder(),
+                              alignLabelWithHint: true,
+                              suffixIcon: _speechEnabled
+                                ? IconButton(
+                                    onPressed: _isListening ? _stopListening : _startListening,
+                                    icon: Icon(
+                                      _isListening ? Icons.mic : Icons.mic_none,
+                                      color: _isListening ? Colors.red : null,
+                                    ),
+                                    tooltip: _isListening ? 'Parar dictado' : 'Iniciar dictado de voz',
+                                  )
+                                : null,
+                            ),
+                            maxLines: null,
+                            expands: true,
+                            textAlignVertical: TextAlignVertical.top,
+                            textCapitalization: TextCapitalization.sentences,
+                            style: TextStyle(fontSize: 16 * _textScaleFactor),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Por favor escribe algo en tu entrada';
+                              }
+                              return null;
+                            },
+                          ),
+                    
                     if (_isListening)
                       Positioned(
                         bottom: 16,
@@ -1189,9 +1308,70 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
                   ],
                 ),
               ),
+              
               const SizedBox(height: 16),
+              
+              // Controles de zoom y acciones
               Row(
                 children: [
+                  if (_isZoomMode) ...[
+                    Expanded(
+                      flex: 2,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _textScaleFactor = (_textScaleFactor - 0.2).clamp(0.7, 2.5);
+                                });
+                              },
+                              icon: const Icon(Icons.remove, size: 16),
+                              label: const Text('A-', style: TextStyle(fontSize: 12)),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(0, 36),
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _textScaleFactor = 1.0;
+                                });
+                              },
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('100%', style: TextStyle(fontSize: 10)),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(0, 36),
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _textScaleFactor = (_textScaleFactor + 0.2).clamp(0.7, 2.5);
+                                });
+                              },
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('A+', style: TextStyle(fontSize: 12)),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(0, 36),
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  
                   if (_speechEnabled) ...[
                     FloatingActionButton(
                       onPressed: _isListening ? _stopListening : _startListening,
@@ -1205,6 +1385,7 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
                     ),
                     const SizedBox(width: 16),
                   ],
+                  
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _guardarEntrada,
@@ -1229,7 +1410,7 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
   }
 }
 
-class VerEntradaPage extends StatelessWidget {
+class VerEntradaPage extends StatefulWidget {
   final EntradaDiario entrada;
   final VoidCallback onDelete;
   final Function(EntradaDiario) onEdit;
@@ -1242,16 +1423,51 @@ class VerEntradaPage extends StatelessWidget {
   });
 
   @override
+  State<VerEntradaPage> createState() => _VerEntradaPageState();
+}
+
+class _VerEntradaPageState extends State<VerEntradaPage> {
+  double _scaleFactor = 1.0;
+  double _baseFontSize = 16.0;
+  
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          entrada.titulo,
+          widget.entrada.titulo,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.zoom_in),
+            onPressed: () {
+              setState(() {
+                _scaleFactor = (_scaleFactor * 1.2).clamp(0.5, 3.0);
+              });
+            },
+            tooltip: 'Aumentar zoom',
+          ),
+          IconButton(
+            icon: const Icon(Icons.zoom_out),
+            onPressed: () {
+              setState(() {
+                _scaleFactor = (_scaleFactor / 1.2).clamp(0.5, 3.0);
+              });
+            },
+            tooltip: 'Disminuir zoom',
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                _scaleFactor = 1.0;
+              });
+            },
+            tooltip: 'Restablecer zoom',
+          ),
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () => _editarEntrada(context),
@@ -1263,9 +1479,52 @@ class VerEntradaPage extends StatelessWidget {
                 _editarEntrada(context);
               } else if (value == 'delete') {
                 _confirmarEliminar(context);
+              } else if (value == 'zoom_in') {
+                setState(() {
+                  _scaleFactor = (_scaleFactor * 1.5).clamp(0.5, 3.0);
+                });
+              } else if (value == 'zoom_out') {
+                setState(() {
+                  _scaleFactor = (_scaleFactor / 1.5).clamp(0.5, 3.0);
+                });
+              } else if (value == 'reset_zoom') {
+                setState(() {
+                  _scaleFactor = 1.0;
+                });
               }
             },
             itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'zoom_in',
+                child: Row(
+                  children: [
+                    const Icon(Icons.zoom_in),
+                    const SizedBox(width: 8),
+                    Text('Zoom + (${(_scaleFactor * 100).toInt()}%)'),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'zoom_out',
+                child: Row(
+                  children: [
+                    const Icon(Icons.zoom_out),
+                    const SizedBox(width: 8),
+                    Text('Zoom - (${(_scaleFactor * 100).toInt()}%)'),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'reset_zoom',
+                child: Row(
+                  children: [
+                    const Icon(Icons.refresh),
+                    const SizedBox(width: 8),
+                    Text('Restablecer zoom (${(_scaleFactor * 100).toInt()}%)'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
               const PopupMenuItem<String>(
                 value: 'edit',
                 child: Row(
@@ -1295,28 +1554,124 @@ class VerEntradaPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '${entrada.fecha.day}/${entrada.fecha.month}/${entrada.fecha.year} - ${entrada.fecha.hour.toString().padLeft(2, '0')}:${entrada.fecha.minute.toString().padLeft(2, '0')}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w500,
+            // Información de fecha y zoom
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${widget.entrada.fecha.day}/${widget.entrada.fecha.month}/${widget.entrada.fecha.year} - ${widget.entrada.fecha.hour.toString().padLeft(2, '0')}:${widget.entrada.fecha.minute.toString().padLeft(2, '0')}',
+                    style: TextStyle(
+                      fontSize: 12 * _scaleFactor,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.zoom_in, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${(_scaleFactor * 100).toInt()}%',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Contenido con zoom interactivo
+            Expanded(
+              child: InteractiveViewer(
+                panEnabled: true, // Permite mover el contenido
+                scaleEnabled: true, // Permite hacer zoom con pellizco
+                minScale: 0.5, // Zoom mínimo
+                maxScale: 5.0, // Zoom máximo
+                onInteractionUpdate: (ScaleUpdateDetails details) {
+                  setState(() {
+                    _scaleFactor = details.scale.clamp(0.5, 3.0);
+                  });
+                },
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                      ),
+                    ),
+                    child: SelectableText(
+                      widget.entrada.contenido,
+                      style: TextStyle(
+                        fontSize: _baseFontSize * _scaleFactor,
+                        height: 1.6,
+                        letterSpacing: 0.3,
+                      ),
+                      textAlign: TextAlign.justify,
+                    ),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Text(
-                  entrada.contenido,
-                  style: const TextStyle(fontSize: 16, height: 1.5),
-                ),
+            
+            // Controles de zoom inferiores
+            Container(
+              margin: const EdgeInsets.only(top: 16),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildZoomButton(
+                    icon: Icons.remove,
+                    label: 'Zoom -',
+                    onPressed: () {
+                      setState(() {
+                        _scaleFactor = (_scaleFactor - 0.1).clamp(0.5, 3.0);
+                      });
+                    },
+                  ),
+                  _buildZoomButton(
+                    icon: Icons.refresh,
+                    label: 'Normal',
+                    onPressed: () {
+                      setState(() {
+                        _scaleFactor = 1.0;
+                      });
+                    },
+                  ),
+                  _buildZoomButton(
+                    icon: Icons.add,
+                    label: 'Zoom +',
+                    onPressed: () {
+                      setState(() {
+                        _scaleFactor = (_scaleFactor + 0.1).clamp(0.5, 3.0);
+                      });
+                    },
+                  ),
+                ],
               ),
             ),
           ],
@@ -1329,16 +1684,37 @@ class VerEntradaPage extends StatelessWidget {
     );
   }
 
+  Widget _buildZoomButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: ElevatedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 18),
+          label: Text(label, style: const TextStyle(fontSize: 12)),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            minimumSize: const Size(0, 36),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _editarEntrada(BuildContext context) async {
     final entradaEditada = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => NuevaEntradaPage(entradaParaEditar: entrada),
+        builder: (context) => NuevaEntradaPage(entradaParaEditar: widget.entrada),
       ),
     );
     
     if (entradaEditada != null) {
-      onEdit(entradaEditada);
+      widget.onEdit(entradaEditada);
       Navigator.pop(context, entradaEditada); // Regresar a la lista con la entrada editada
     }
   }
@@ -1349,7 +1725,7 @@ class VerEntradaPage extends StatelessWidget {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Confirmar eliminación'),
-          content: Text('¿Estás seguro de que quieres eliminar "${entrada.titulo}"?'),
+          content: Text('¿Estás seguro de que quieres eliminar "${widget.entrada.titulo}"?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
@@ -1358,7 +1734,7 @@ class VerEntradaPage extends StatelessWidget {
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                onDelete();
+                widget.onDelete();
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Eliminar'),
