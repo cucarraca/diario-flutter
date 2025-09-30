@@ -8,19 +8,208 @@ void main() {
   runApp(const DiarioApp());
 }
 
-class DiarioApp extends StatelessWidget {
+// Enum para los temas disponibles
+enum AppTheme {
+  light,
+  dark,
+  dracula,
+}
+
+// Clase para gestionar temas
+class ThemeService {
+  static const String _themeKey = 'app_theme';
+
+  static Future<AppTheme> getTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final themeIndex = prefs.getInt(_themeKey) ?? 0;
+    return AppTheme.values[themeIndex];
+  }
+
+  static Future<void> setTheme(AppTheme theme) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_themeKey, theme.index);
+  }
+
+  static ThemeData getLightTheme() {
+    return ThemeData(
+      brightness: Brightness.light,
+      primarySwatch: Colors.purple,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.deepPurple,
+        brightness: Brightness.light,
+      ),
+      useMaterial3: true,
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
+        elevation: 2,
+      ),
+      cardTheme: const CardThemeData(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        elevation: 6,
+      ),
+    );
+  }
+
+  static ThemeData getDarkTheme() {
+    return ThemeData(
+      brightness: Brightness.dark,
+      primarySwatch: Colors.purple,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.deepPurple,
+        brightness: Brightness.dark,
+      ),
+      useMaterial3: true,
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
+        elevation: 2,
+      ),
+      cardTheme: const CardThemeData(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        elevation: 6,
+      ),
+    );
+  }
+
+  static ThemeData getDraculaTheme() {
+    const draculaBackground = Color(0xFF282A36);
+    const draculaCurrentLine = Color(0xFF44475A);
+    const draculaForeground = Color(0xFFF8F8F2);
+    const draculaComment = Color(0xFF6272A4);
+    const draculaCyan = Color(0xFF8BE9FD);
+    const draculaGreen = Color(0xFF50FA7B);
+    const draculaOrange = Color(0xFFFFB86C);
+    const draculaPink = Color(0xFFFF79C6);
+    const draculaPurple = Color(0xFFBD93F9);
+    const draculaRed = Color(0xFFFF5555);
+    const draculaYellow = Color(0xFFF1FA8C);
+
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: draculaPurple,
+      scaffoldBackgroundColor: draculaBackground,
+      colorScheme: const ColorScheme.dark(
+        primary: draculaPurple,
+        secondary: draculaPink,
+        surface: draculaCurrentLine,
+        background: draculaBackground,
+        onPrimary: draculaBackground,
+        onSecondary: draculaBackground,
+        onSurface: draculaForeground,
+        onBackground: draculaForeground,
+      ),
+      useMaterial3: true,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: draculaCurrentLine,
+        foregroundColor: draculaForeground,
+        centerTitle: true,
+        elevation: 2,
+      ),
+      cardTheme: const CardThemeData(
+        color: draculaCurrentLine,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: draculaPurple,
+        foregroundColor: draculaBackground,
+        elevation: 6,
+      ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: draculaForeground),
+        bodyMedium: TextStyle(color: draculaForeground),
+        titleLarge: TextStyle(color: draculaForeground),
+        titleMedium: TextStyle(color: draculaForeground),
+      ),
+      iconTheme: const IconThemeData(color: draculaForeground),
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: draculaCurrentLine,
+        border: OutlineInputBorder(
+          borderSide: BorderSide(color: draculaComment),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: draculaComment),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: draculaPurple, width: 2),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: draculaPurple,
+          foregroundColor: draculaBackground,
+        ),
+      ),
+    );
+  }
+
+  static String getThemeName(AppTheme theme) {
+    switch (theme) {
+      case AppTheme.light:
+        return 'Tema Claro';
+      case AppTheme.dark:
+        return 'Tema Oscuro';
+      case AppTheme.dracula:
+        return 'Dracula';
+    }
+  }
+}
+
+class DiarioApp extends StatefulWidget {
   const DiarioApp({super.key});
 
   @override
+  State<DiarioApp> createState() => _DiarioAppState();
+}
+
+class _DiarioAppState extends State<DiarioApp> {
+  AppTheme _currentTheme = AppTheme.light;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    final theme = await ThemeService.getTheme();
+    setState(() {
+      _currentTheme = theme;
+    });
+  }
+
+  Future<void> changeTheme(AppTheme newTheme) async {
+    await ThemeService.setTheme(newTheme);
+    setState(() {
+      _currentTheme = newTheme;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    ThemeData themeData;
+    switch (_currentTheme) {
+      case AppTheme.light:
+        themeData = ThemeService.getLightTheme();
+        break;
+      case AppTheme.dark:
+        themeData = ThemeService.getDarkTheme();
+        break;
+      case AppTheme.dracula:
+        themeData = ThemeService.getDraculaTheme();
+        break;
+    }
+
     return MaterialApp(
       title: 'Mi Diario Personal',
-      theme: ThemeData(
-        primarySwatch: Colors.purple,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const AuthPage(),
+      theme: themeData,
+      home: AuthPage(onThemeChanged: changeTheme, currentTheme: _currentTheme),
     );
   }
 }
@@ -99,7 +288,14 @@ class AuthService {
 }
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key});
+  final Function(AppTheme) onThemeChanged;
+  final AppTheme currentTheme;
+  
+  const AuthPage({
+    super.key,
+    required this.onThemeChanged,
+    required this.currentTheme,
+  });
 
   @override
   State<AuthPage> createState() => _AuthPageState();
@@ -159,7 +355,12 @@ class _AuthPageState extends State<AuthPage> {
 
   void _navigateToHome() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const HomePage()),
+      MaterialPageRoute(
+        builder: (context) => HomePage(
+          onThemeChanged: widget.onThemeChanged,
+          currentTheme: widget.currentTheme,
+        ),
+      ),
     );
   }
 
@@ -179,6 +380,32 @@ class _AuthPageState extends State<AuthPage> {
         title: Text(_isFirstTime ? 'Configurar Diario' : 'Mi Diario Personal'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         centerTitle: true,
+        actions: [
+          PopupMenuButton<AppTheme>(
+            icon: const Icon(Icons.palette),
+            tooltip: 'Cambiar tema',
+            onSelected: (AppTheme theme) {
+              widget.onThemeChanged(theme);
+            },
+            itemBuilder: (BuildContext context) => AppTheme.values.map((AppTheme theme) {
+              return PopupMenuItem<AppTheme>(
+                value: theme,
+                child: Row(
+                  children: [
+                    Icon(
+                      theme == widget.currentTheme ? Icons.check : Icons.circle,
+                      color: theme == widget.currentTheme 
+                        ? Theme.of(context).colorScheme.primary 
+                        : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(ThemeService.getThemeName(theme)),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -359,7 +586,14 @@ class _AuthPageState extends State<AuthPage> {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final Function(AppTheme) onThemeChanged;
+  final AppTheme currentTheme;
+  
+  const HomePage({
+    super.key,
+    required this.onThemeChanged,
+    required this.currentTheme,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -413,9 +647,64 @@ class _HomePageState extends State<HomePage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => VerEntradaPage(entrada: entrada),
+        builder: (context) => VerEntradaPage(
+          entrada: entrada,
+          onDelete: () => _borrarEntrada(entrada),
+          onEdit: (entradaEditada) => _editarEntrada(entrada, entradaEditada),
+        ),
       ),
     );
+  }
+
+  Future<void> _borrarEntrada(EntradaDiario entrada) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar eliminación'),
+          content: Text('¿Estás seguro de que quieres eliminar la entrada "${entrada.titulo}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmar == true) {
+      setState(() {
+        _entradas.removeWhere((e) => e.id == entrada.id);
+      });
+      await _guardarEntradas();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Entrada eliminada'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop(); // Volver a la lista si estamos viendo la entrada
+      }
+    }
+  }
+
+  void _editarEntrada(EntradaDiario entradaOriginal, EntradaDiario entradaEditada) {
+    setState(() {
+      final index = _entradas.indexWhere((e) => e.id == entradaOriginal.id);
+      if (index != -1) {
+        _entradas[index] = entradaEditada;
+        _entradas.sort((a, b) => b.fecha.compareTo(a.fecha));
+      }
+    });
+    _guardarEntradas();
   }
 
   void _mostrarMenuConfiguracion() {
@@ -434,11 +723,28 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               ListTile(
+                leading: const Icon(Icons.palette),
+                title: const Text('Cambiar Tema'),
+                subtitle: Text(ThemeService.getThemeName(widget.currentTheme)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _mostrarSelectorTemas();
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.lock),
                 title: const Text('Cambiar Contraseña'),
                 onTap: () {
                   Navigator.pop(context);
                   _mostrarCambiarPassword();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_forever, color: Colors.red),
+                title: const Text('Eliminar Todas las Entradas', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _mostrarConfirmacionBorrarTodas();
                 },
               ),
               ListTile(
@@ -457,6 +763,80 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _mostrarSelectorTemas() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Seleccionar Tema'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: AppTheme.values.map((AppTheme theme) {
+              return RadioListTile<AppTheme>(
+                title: Text(ThemeService.getThemeName(theme)),
+                value: theme,
+                groupValue: widget.currentTheme,
+                onChanged: (AppTheme? value) {
+                  if (value != null) {
+                    widget.onThemeChanged(value);
+                    Navigator.of(context).pop();
+                  }
+                },
+              );
+            }).toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _mostrarConfirmacionBorrarTodas() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('⚠️ Eliminar Todo'),
+          content: const Text(
+            'Esta acción eliminará TODAS las entradas del diario de forma permanente.\n\n¿Estás completamente seguro?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('SÍ, ELIMINAR TODO'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmar == true) {
+      setState(() {
+        _entradas.clear();
+      });
+      await _guardarEntradas();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Todas las entradas han sido eliminadas'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
   void _mostrarCambiarPassword() {
     Navigator.push(
       context,
@@ -466,7 +846,12 @@ class _HomePageState extends State<HomePage> {
 
   void _cerrarSesion() {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const AuthPage()),
+      MaterialPageRoute(
+        builder: (context) => AuthPage(
+          onThemeChanged: widget.onThemeChanged,
+          currentTheme: widget.currentTheme,
+        ),
+      ),
       (Route<dynamic> route) => false,
     );
   }
@@ -509,35 +894,101 @@ class _HomePageState extends State<HomePage> {
               itemCount: _entradas.length,
               itemBuilder: (context, index) {
                 final entrada = _entradas[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: ListTile(
-                    title: Text(
-                      entrada.titulo,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                return Dismissible(
+                  key: Key(entrada.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20.0),
+                    color: Colors.red,
+                    child: const Icon(
+                      Icons.delete,
+                      color: Colors.white,
                     ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entrada.contenido,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${entrada.fecha.day}/${entrada.fecha.month}/${entrada.fecha.year} - ${entrada.fecha.hour.toString().padLeft(2, '0')}:${entrada.fecha.minute.toString().padLeft(2, '0')}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
+                  ),
+                  confirmDismiss: (direction) async {
+                    return await showDialog<bool>(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Confirmar eliminación'),
+                          content: Text('¿Eliminar "${entrada.titulo}"?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('Cancelar'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              style: TextButton.styleFrom(foregroundColor: Colors.red),
+                              child: const Text('Eliminar'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                  onDismissed: (direction) {
+                    setState(() {
+                      _entradas.removeAt(index);
+                    });
+                    _guardarEntradas();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${entrada.titulo} eliminada'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  child: Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: ListTile(
+                      title: Text(
+                        entrada.titulo,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entrada.contenido,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            '${entrada.fecha.day}/${entrada.fecha.month}/${entrada.fecha.year} - ${entrada.fecha.hour.toString().padLeft(2, '0')}:${entrada.fecha.minute.toString().padLeft(2, '0')}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      leading: const Icon(Icons.article, color: Colors.deepPurple),
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (String value) {
+                          if (value == 'delete') {
+                            _borrarEntrada(entrada);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('Eliminar', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      onTap: () => _verEntrada(entrada),
                     ),
-                    leading: const Icon(Icons.article, color: Colors.deepPurple),
-                    onTap: () => _verEntrada(entrada),
                   ),
                 );
               },
@@ -652,27 +1103,66 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
 
 class VerEntradaPage extends StatelessWidget {
   final EntradaDiario entrada;
+  final VoidCallback onDelete;
+  final Function(EntradaDiario) onEdit;
 
-  const VerEntradaPage({super.key, required this.entrada});
+  const VerEntradaPage({
+    super.key,
+    required this.entrada,
+    required this.onDelete,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(entrada.titulo),
+        title: Text(
+          entrada.titulo,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (String value) {
+              if (value == 'delete') {
+                _confirmarEliminar(context);
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Eliminar', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${entrada.fecha.day}/${entrada.fecha.month}/${entrada.fecha.year} - ${entrada.fecha.hour.toString().padLeft(2, '0')}:${entrada.fecha.minute.toString().padLeft(2, '0')}',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-                fontStyle: FontStyle.italic,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${entrada.fecha.day}/${entrada.fecha.month}/${entrada.fecha.year} - ${entrada.fecha.hour.toString().padLeft(2, '0')}:${entrada.fecha.minute.toString().padLeft(2, '0')}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -687,6 +1177,37 @@ class VerEntradaPage extends StatelessWidget {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _confirmarEliminar(context),
+        backgroundColor: Colors.red,
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+    );
+  }
+
+  void _confirmarEliminar(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirmar eliminación'),
+          content: Text('¿Estás seguro de que quieres eliminar "${entrada.titulo}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                onDelete();
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

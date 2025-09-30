@@ -11,9 +11,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:diario_flutter/main.dart';
 
 void main() {
-  testWidgets('Diario app authentication smoke test', (WidgetTester tester) async {
+  testWidgets('Diario app authentication and themes smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const DiarioApp());
+    
+    // Wait for theme loading
+    await tester.pump();
 
     // Verify that our app starts with authentication screen.
     expect(find.text('¡Bienvenido!'), findsOneWidget);
@@ -27,5 +30,8 @@ void main() {
     
     // Verify the main button exists
     expect(find.byType(ElevatedButton), findsOneWidget);
+    
+    // Verify theme selector exists
+    expect(find.byIcon(Icons.palette), findsOneWidget);
   });
 }
