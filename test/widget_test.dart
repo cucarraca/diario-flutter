@@ -11,17 +11,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:diario_flutter/main.dart';
 
 void main() {
-  testWidgets('Diario app smoke test', (WidgetTester tester) async {
+  testWidgets('Diario app authentication smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const DiarioApp());
 
-    // Verify that our app starts with the correct title.
-    expect(find.text('Mi Diario Personal'), findsOneWidget);
+    // Verify that our app starts with authentication screen.
+    expect(find.text('¡Bienvenido!'), findsOneWidget);
     
-    // Verify that the initial empty state message is shown.
-    expect(find.text('No hay entradas aún'), findsOneWidget);
+    // Verify that there are password fields for first time setup.
+    expect(find.text('Nueva Contraseña'), findsOneWidget);
+    expect(find.text('Confirmar Contraseña'), findsOneWidget);
     
-    // Verify that there's a floating action button to add entries.
-    expect(find.byType(FloatingActionButton), findsOneWidget);
+    // Verify that there's a configuration button.
+    expect(find.text('Configurar Diario'), findsOneWidget);
   });
 }
