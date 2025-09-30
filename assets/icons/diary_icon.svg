@@ -1,0 +1,46 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background book -->
+  <rect x="80" y="80" width="320" height="400" rx="20" ry="20" fill="#8B4513" stroke="#654321" stroke-width="4"/>
+  
+  <!-- Book spine -->
+  <rect x="80" y="80" width="40" height="400" rx="20" ry="20" fill="#654321"/>
+  
+  <!-- Book pages -->
+  <rect x="130" y="100" width="260" height="360" rx="8" ry="8" fill="#FFF8DC"/>
+  
+  <!-- Spiral binding -->
+  <circle cx="95" cy="120" r="8" fill="#C0C0C0"/>
+  <circle cx="95" cy="160" r="8" fill="#C0C0C0"/>
+  <circle cx="95" cy="200" r="8" fill="#C0C0C0"/>
+  <circle cx="95" cy="240" r="8" fill="#C0C0C0"/>
+  <circle cx="95" cy="280" r="8" fill="#C0C0C0"/>
+  <circle cx="95" cy="320" r="8" fill="#C0C0C0"/>
+  <circle cx="95" cy="360" r="8" fill="#C0C0C0"/>
+  <circle cx="95" cy="400" r="8" fill="#C0C0C0"/>
+  <circle cx="95" cy="440" r="8" fill="#C0C0C0"/>
+  
+  <!-- Text lines on page -->
+  <line x1="150" y1="140" x2="370" y2="140" stroke="#BD93F9" stroke-width="3"/>
+  <line x1="150" y1="170" x2="350" y2="170" stroke="#6272A4" stroke-width="2"/>
+  <line x1="150" y1="190" x2="380" y2="190" stroke="#6272A4" stroke-width="2"/>
+  <line x1="150" y1="210" x2="340" y2="210" stroke="#6272A4" stroke-width="2"/>
+  
+  <line x1="150" y1="250" x2="360" y2="250" stroke="#6272A4" stroke-width="2"/>
+  <line x1="150" y1="270" x2="320" y2="270" stroke="#6272A4" stroke-width="2"/>
+  <line x1="150" y1="290" x2="370" y2="290" stroke="#6272A4" stroke-width="2"/>
+  
+  <line x1="150" y1="330" x2="350" y2="330" stroke="#6272A4" stroke-width="2"/>
+  <line x1="150" y1="350" x2="380" y2="350" stroke="#6272A4" stroke-width="2"/>
+  <line x1="150" y1="370" x2="330" y2="370" stroke="#6272A4" stroke-width="2"/>
+  
+  <!-- Pen icon -->
+  <path d="M 350 400 L 370 420 L 360 430 L 340 410 Z" fill="#FF79C6"/>
+  <circle cx="375" cy="415" r="5" fill="#BD93F9"/>
+  
+  <!-- Book title -->
+  <text x="256" y="50" font-family="serif" font-size="24" font-weight="bold" text-anchor="middle" fill="#BD93F9">Mi Diario</text>
+  
+  <!-- Lock for security -->
+  <rect x="400" y="240" width="20" height="25" rx="3" fill="#FFD700"/>
+  <path d="M 405 240 A 8 8 0 0 1 415 240" stroke="#FFD700" stroke-width="3" fill="none"/>
+</svg>

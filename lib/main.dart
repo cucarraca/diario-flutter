@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'dart:typed_data';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 void main() {
   runApp(const DiarioApp());
@@ -643,8 +644,8 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _verEntrada(EntradaDiario entrada) {
-    Navigator.push(
+  void _verEntrada(EntradaDiario entrada) async {
+    final resultado = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => VerEntradaPage(
@@ -654,6 +655,11 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+    
+    // Si se editó la entrada, actualizar la lista
+    if (resultado != null && resultado is EntradaDiario) {
+      _editarEntrada(entrada, resultado);
+    }
   }
 
   Future<void> _borrarEntrada(EntradaDiario entrada) async {
@@ -1003,7 +1009,9 @@ class _HomePageState extends State<HomePage> {
 }
 
 class NuevaEntradaPage extends StatefulWidget {
-  const NuevaEntradaPage({super.key});
+  final EntradaDiario? entradaParaEditar;
+  
+  const NuevaEntradaPage({super.key, this.entradaParaEditar});
 
   @override
   State<NuevaEntradaPage> createState() => _NuevaEntradaPageState();
@@ -1013,14 +1021,76 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
   final _tituloController = TextEditingController();
   final _contenidoController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
+  bool _speechEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _speech = stt.SpeechToText();
+    _initSpeech();
+    
+    // Si estamos editando, llenar los campos
+    if (widget.entradaParaEditar != null) {
+      _tituloController.text = widget.entradaParaEditar!.titulo;
+      _contenidoController.text = widget.entradaParaEditar!.contenido;
+    }
+  }
+
+  void _initSpeech() async {
+    _speechEnabled = await _speech.initialize();
+    setState(() {});
+  }
+
+  void _startListening() async {
+    if (_speechEnabled && !_isListening) {
+      await _speech.listen(
+        onResult: (result) {
+          setState(() {
+            String currentText = _contenidoController.text;
+            String spokenText = result.recognizedWords;
+            
+            // Si ya hay texto, agregar un espacio antes del nuevo texto
+            if (currentText.isNotEmpty && !currentText.endsWith(' ')) {
+              currentText += ' ';
+            }
+            
+            _contenidoController.text = currentText + spokenText;
+            _contenidoController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _contenidoController.text.length),
+            );
+          });
+        },
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+        partialResults: true,
+        localeId: 'es_ES', // Español
+        cancelOnError: true,
+        listenMode: stt.ListenMode.confirmation,
+      );
+      setState(() {
+        _isListening = true;
+      });
+    }
+  }
+
+  void _stopListening() async {
+    await _speech.stop();
+    setState(() {
+      _isListening = false;
+    });
+  }
 
   void _guardarEntrada() {
     if (_formKey.currentState!.validate()) {
+      bool isEditing = widget.entradaParaEditar != null;
+      
       final nuevaEntrada = EntradaDiario(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: isEditing ? widget.entradaParaEditar!.id : DateTime.now().millisecondsSinceEpoch.toString(),
         titulo: _tituloController.text,
         contenido: _contenidoController.text,
-        fecha: DateTime.now(),
+        fecha: isEditing ? widget.entradaParaEditar!.fecha : DateTime.now(),
       );
       Navigator.pop(context, nuevaEntrada);
     }
@@ -1028,9 +1098,11 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
 
   @override
   Widget build(BuildContext context) {
+    bool isEditing = widget.entradaParaEditar != null;
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nueva Entrada'),
+        title: Text(isEditing ? 'Editar Entrada' : 'Nueva Entrada'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
@@ -1051,6 +1123,7 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
                   labelText: 'Título',
                   border: OutlineInputBorder(),
                 ),
+                textCapitalization: TextCapitalization.sentences,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Por favor ingresa un título';
@@ -1060,31 +1133,86 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: TextFormField(
-                  controller: _contenidoController,
-                  decoration: const InputDecoration(
-                    labelText: 'Escribe tus pensamientos...',
-                    border: OutlineInputBorder(),
-                    alignLabelWithHint: true,
-                  ),
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor escribe algo en tu entrada';
-                    }
-                    return null;
-                  },
+                child: Stack(
+                  children: [
+                    TextFormField(
+                      controller: _contenidoController,
+                      decoration: InputDecoration(
+                        labelText: 'Escribe tus pensamientos...',
+                        border: const OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                        suffixIcon: _speechEnabled
+                          ? IconButton(
+                              onPressed: _isListening ? _stopListening : _startListening,
+                              icon: Icon(
+                                _isListening ? Icons.mic : Icons.mic_none,
+                                color: _isListening ? Colors.red : null,
+                              ),
+                              tooltip: _isListening ? 'Parar dictado' : 'Iniciar dictado de voz',
+                            )
+                          : null,
+                      ),
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                      textCapitalization: TextCapitalization.sentences,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Por favor escribe algo en tu entrada';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (_isListening)
+                      Positioned(
+                        bottom: 16,
+                        right: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.mic, color: Colors.white, size: 16),
+                              SizedBox(width: 4),
+                              Text(
+                                'Escuchando...',
+                                style: TextStyle(color: Colors.white, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _guardarEntrada,
-                  child: const Text('Guardar Entrada'),
-                ),
+              Row(
+                children: [
+                  if (_speechEnabled) ...[
+                    FloatingActionButton(
+                      onPressed: _isListening ? _stopListening : _startListening,
+                      backgroundColor: _isListening ? Colors.red : Theme.of(context).colorScheme.secondary,
+                      heroTag: "voice",
+                      mini: true,
+                      child: Icon(
+                        _isListening ? Icons.stop : Icons.mic,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _guardarEntrada,
+                      icon: Icon(isEditing ? Icons.save : Icons.add),
+                      label: Text(isEditing ? 'Guardar Cambios' : 'Guardar Entrada'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1124,13 +1252,30 @@ class VerEntradaPage extends StatelessWidget {
         ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () => _editarEntrada(context),
+            tooltip: 'Editar entrada',
+          ),
           PopupMenuButton<String>(
             onSelected: (String value) {
-              if (value == 'delete') {
+              if (value == 'edit') {
+                _editarEntrada(context);
+              } else if (value == 'delete') {
                 _confirmarEliminar(context);
               }
             },
             itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit),
+                    SizedBox(width: 8),
+                    Text('Editar'),
+                  ],
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'delete',
                 child: Row(
@@ -1178,11 +1323,24 @@ class VerEntradaPage extends StatelessWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _confirmarEliminar(context),
-        backgroundColor: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
+        onPressed: () => _editarEntrada(context),
+        child: const Icon(Icons.edit),
       ),
     );
+  }
+
+  void _editarEntrada(BuildContext context) async {
+    final entradaEditada = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NuevaEntradaPage(entradaParaEditar: entrada),
+      ),
+    );
+    
+    if (entradaEditada != null) {
+      onEdit(entradaEditada);
+      Navigator.pop(context, entradaEditada); // Regresar a la lista con la entrada editada
+    }
   }
 
   void _confirmarEliminar(BuildContext context) {
