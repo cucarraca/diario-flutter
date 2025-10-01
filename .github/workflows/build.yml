@@ -1,4 +1,4 @@
-name: Build APK - Botones Micrófono Separados
+name: Build APK - Dictado Profesional v1.0.21
 
 on:
   push:
@@ -36,47 +36,46 @@ jobs:
     - name: Rename APK
       run: |
         mkdir -p apk_outputs
-        cp build/app/outputs/flutter-apk/app-release.apk apk_outputs/Diario-MICROFONO-SEPARADO-v1.0.20.apk
+        cp build/app/outputs/flutter-apk/app-release.apk apk_outputs/Diario-DICTADO-PROFESIONAL-v1.0.21.apk
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Diario-MICROFONO-SEPARADO-v1.0.20
-        path: apk_outputs/Diario-MICROFONO-SEPARADO-v1.0.20.apk
+        name: Diario-DICTADO-PROFESIONAL-v1.0.21
+        path: apk_outputs/Diario-DICTADO-PROFESIONAL-v1.0.21.apk
         retention-days: 30
 
     - name: Create Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: v1.0.20-microfono-separado
-        name: Diario Personal - Botones Micrófono Separados v1.0.20
+        tag_name: v1.0.21-dictado-profesional
+        name: Diario Personal - Sistema Dictado Profesional v1.0.21
         body: |
-          🎤 **CONTROL TOTAL DEL MICRÓFONO** - ¡BOTONES SEPARADOS!
+          🎤 **SISTEMA DE DICTADO PROFESIONAL** - ¡SIN INTERRUPCIONES!
           
-          ## ✨ **NUEVAS FUNCIONALIDADES:**
+          ## ✨ **MEJORAS PRINCIPALES:**
           
-          ### 🎯 **Control Manual del Dictado:**
-          - ✅ **Botón VERDE** 🟢 → Para ACTIVAR el micrófono
-          - ❌ **Botón ROJO** 🔴 → Para DETENER el micrófono
-          - 🎛️ **Control 100% manual** - Ya no se detiene automáticamente
-          - 📍 **Botones separados** en campo de texto Y en la parte inferior
+          ### 🎯 **Dictado Completamente Mejorado:**
+          - 🟢 **Botón INICIAR** → Activa micrófono y escucha SIN LÍMITES
+          - 🔴 **Botón DETENER** → Para el dictado solo cuando TÚ quieras
+          - ⏰ **ESCUCHA CONTINUA** hasta 10 minutos sin interrupciones
+          - 🚫 **NO se para automáticamente** por silencio
+          - 🔄 **Reinicio inteligente** cuando se necesita
           
-          ### 🔧 **Mejoras en Dictado:**
-          - 🚫 Sin paradas automáticas molestas
-          - ⏰ Dictado continuo hasta que TÚ lo pares
-          - 🎯 Activación/desactivación totalmente manual
-          - 🔄 Mayor estabilidad en el reconocimiento de voz
-          - 📝 Mejor formateo automático del texto
+          ### 🧠 **Inteligencia de Texto:**
+          - 🔤 **Capitalización automática** después de puntos
+          - 📏 **Espaciado inteligente** entre palabras
+          - 🎯 **Procesamiento mejorado** de resultados finales/parciales
+          - 📝 **Sin duplicación de texto**
+          - ✅ **Mejor precisión** en reconocimiento
           
-          ### 🎨 **Funciones Completas Disponibles:**
-          - 🎤 **Dictado con botones separados** (NUEVO)
-          - 🗑️ **Eliminación sin errores**
-          - 📁 **Importar/exportar entradas seguras**
-          - 🔐 **Sistema de contraseñas robusto**
-          - 🔍 **Zoom en pantalla interactivo**
-          - ✏️ **Editar entradas guardadas**
-          - 🎨 **9 TEMAS DIFERENTES** (1 claro + 8 oscuros)
+          ### 🔧 **Correcciones Técnicas:**
+          - ⚡ **Basado en dictáfono profesional** comprobado
+          - 🛠️ **Configuración optimizada** de SpeechToText
+          - 📱 **Mejor manejo de errores** de micrófono
+          - 🔄 **Estados de dictado** más estables
+          - 🎪 **Confirmaciones visuales** de acciones
           
           ### 🖼️ **Interfaz Mejorada:**
           - 🟢 Botón verde para iniciar dictado
@@ -84,12 +83,21 @@ jobs:
           - 👆 Botones más claros y fáciles de usar
           - 🎯 Indicadores visuales del estado del micrófono
           
-          ### 📱 **INSTALACIÓN:**
-          Descarga `Diario-MICROFONO-SEPARADO-v1.0.20.apk` e instálala.
+          ### 🎨 **FUNCIONES COMPLETAS:**
+          - 🎤 **Dictado profesional** sin interrupciones (MEJORADO)
+          - 🗑️ **Eliminación perfecta** de entradas
+          - 📁 **Importar/exportar** con cifrado
+          - 🔐 **Sistema de contraseñas** seguro
+          - 🔍 **Zoom interactivo** en pantalla
+          - ✏️ **Edición completa** de entradas
+          - 🎨 **9 TEMAS** (1 claro + 8 oscuros)
           
-          **¡Ahora tienes control total sobre el dictado de voz!** 🎤
+          ### 📱 **INSTALACIÓN:**
+          Descarga `Diario-DICTADO-PROFESIONAL-v1.0.21.apk` e instálala.
+          
+          **¡Dictado de voz perfeccionado al máximo!** 🎤✨
         files: |
-          apk_outputs/Diario-MICROFONO-SEPARADO-v1.0.20.apk
+          apk_outputs/Diario-DICTADO-PROFESIONAL-v1.0.21.apk
         draft: false
         prerelease: false
       env:
