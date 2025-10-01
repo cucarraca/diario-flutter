@@ -755,11 +755,14 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Entrada eliminada'),
+            content: Text('Entrada eliminada exitosamente'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
-        Navigator.of(context).pop(); // Volver a la lista si estamos viendo la entrada
+        
+        // Refrescar la vista actualizando el estado
+        setState(() {});
       }
     }
   }
@@ -2567,8 +2570,18 @@ class _VerEntradaPageState extends State<VerEntradaPage> {
               child: const Text('Cancelar'),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
+              onPressed: () async {
+                Navigator.of(dialogContext).pop(); // Cerrar diálogo
+                
+                // Navegar de vuelta antes de eliminar
+                if (mounted && Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop(); // Volver a la lista principal
+                }
+                
+                // Pequeño delay para asegurar que la navegación se complete
+                await Future.delayed(const Duration(milliseconds: 100));
+                
+                // Ahora eliminar la entrada
                 widget.onDelete();
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
