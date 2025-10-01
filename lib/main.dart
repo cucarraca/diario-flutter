@@ -2412,13 +2412,44 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
                                   border: const OutlineInputBorder(),
                                   alignLabelWithHint: true,
                                   suffixIcon: _speechEnabled
-                                    ? IconButton(
-                                        onPressed: _isListening ? _stopListening : _startListening,
-                                        icon: Icon(
-                                          _isListening ? Icons.mic : Icons.mic_none,
-                                          color: _isListening ? Colors.red : null,
-                                        ),
-                                        tooltip: _isListening ? 'Parar dictado' : 'Iniciar dictado de voz',
+                                    ? Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                onPressed: !_isListening ? _startListening : null,
+                                                icon: Icon(
+                                                  Icons.mic,
+                                                  color: !_isListening ? Colors.green : Colors.grey,
+                                                  size: 20,
+                                                ),
+                                                tooltip: 'Iniciar dictado',
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(
+                                                  minHeight: 24,
+                                                  minWidth: 24,
+                                                ),
+                                              ),
+                                              IconButton(
+                                                onPressed: _isListening ? _stopListening : null,
+                                                icon: Icon(
+                                                  Icons.stop,
+                                                  color: _isListening ? Colors.red : Colors.grey,
+                                                  size: 20,
+                                                ),
+                                                tooltip: 'Detener dictado',
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(
+                                                  minHeight: 24,
+                                                  minWidth: 24,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       )
                                     : null,
                                 ),
@@ -2446,13 +2477,44 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
                               border: const OutlineInputBorder(),
                               alignLabelWithHint: true,
                               suffixIcon: _speechEnabled
-                                ? IconButton(
-                                    onPressed: _isListening ? _stopListening : _startListening,
-                                    icon: Icon(
-                                      _isListening ? Icons.mic : Icons.mic_none,
-                                      color: _isListening ? Colors.red : null,
-                                    ),
-                                    tooltip: _isListening ? 'Parar dictado' : 'Iniciar dictado de voz',
+                                ? Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            onPressed: !_isListening ? _startListening : null,
+                                            icon: Icon(
+                                              Icons.mic,
+                                              color: !_isListening ? Colors.green : Colors.grey,
+                                              size: 20,
+                                            ),
+                                            tooltip: 'Iniciar dictado',
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(
+                                              minHeight: 24,
+                                              minWidth: 24,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            onPressed: _isListening ? _stopListening : null,
+                                            icon: Icon(
+                                              Icons.stop,
+                                              color: _isListening ? Colors.red : Colors.grey,
+                                              size: 20,
+                                            ),
+                                            tooltip: 'Detener dictado',
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(
+                                              minHeight: 24,
+                                              minWidth: 24,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   )
                                 : null,
                             ),
@@ -2560,15 +2622,31 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
                   ],
                   
                   if (_speechEnabled) ...[
+                    // Botón para INICIAR el micrófono
                     FloatingActionButton(
-                      onPressed: _isListening ? _stopListening : _startListening,
-                      backgroundColor: _isListening ? Colors.red : Theme.of(context).colorScheme.secondary,
-                      heroTag: "voice",
+                      onPressed: !_isListening ? _startListening : null,
+                      backgroundColor: !_isListening ? Colors.green : Colors.grey,
+                      heroTag: "voice_start",
                       mini: true,
                       child: Icon(
-                        _isListening ? Icons.stop : Icons.mic,
+                        Icons.mic,
                         color: Colors.white,
                       ),
+                      tooltip: 'Activar dictado',
+                    ),
+                    const SizedBox(width: 8),
+                    
+                    // Botón para DETENER el micrófono
+                    FloatingActionButton(
+                      onPressed: _isListening ? _stopListening : null,
+                      backgroundColor: _isListening ? Colors.red : Colors.grey,
+                      heroTag: "voice_stop",
+                      mini: true,
+                      child: Icon(
+                        Icons.stop,
+                        color: Colors.white,
+                      ),
+                      tooltip: 'Detener dictado',
                     ),
                     const SizedBox(width: 16),
                   ],
