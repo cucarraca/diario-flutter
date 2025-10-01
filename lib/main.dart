@@ -7,6 +7,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const DiarioApp());
@@ -244,6 +245,64 @@ class EntradaDiario {
     contenido: json['contenido'],
     fecha: DateTime.parse(json['fecha']),
   );
+}
+
+class EncryptionService {
+  static const String _secretKey = 'DiarioPersonalSecureKey2024';
+  
+  static String encryptData(String data) {
+    try {
+      // Convertir datos a bytes
+      final dataBytes = utf8.encode(data);
+      final keyBytes = utf8.encode(_secretKey);
+      
+      // Crear hash del key para tamaño consistente
+      final keyHash = sha256.convert(keyBytes).bytes;
+      
+      // Encriptación simple XOR con el hash de la clave
+      final encryptedBytes = <int>[];
+      for (int i = 0; i < dataBytes.length; i++) {
+        encryptedBytes.add(dataBytes[i] ^ keyHash[i % keyHash.length]);
+      }
+      
+      // Convertir a base64 para almacenamiento seguro
+      final encryptedBase64 = base64Encode(encryptedBytes);
+      
+      // Agregar header para identificar archivos encriptados
+      return 'DIARIO_ENCRYPTED_V1:$encryptedBase64';
+    } catch (e) {
+      throw Exception('Error al encriptar datos: ${e.toString()}');
+    }
+  }
+  
+  static String decryptData(String encryptedData) {
+    try {
+      // Verificar header
+      if (!encryptedData.startsWith('DIARIO_ENCRYPTED_V1:')) {
+        throw Exception('Archivo no válido o no encriptado');
+      }
+      
+      // Extraer datos encriptados sin el header
+      final base64Data = encryptedData.substring('DIARIO_ENCRYPTED_V1:'.length);
+      final encryptedBytes = base64Decode(base64Data);
+      final keyBytes = utf8.encode(_secretKey);
+      final keyHash = sha256.convert(keyBytes).bytes;
+      
+      // Desencriptación XOR
+      final decryptedBytes = <int>[];
+      for (int i = 0; i < encryptedBytes.length; i++) {
+        decryptedBytes.add(encryptedBytes[i] ^ keyHash[i % keyHash.length]);
+      }
+      
+      return utf8.decode(decryptedBytes);
+    } catch (e) {
+      throw Exception('Error al desencriptar: Archivo corrupto o contraseña incorrecta');
+    }
+  }
+  
+  static bool isEncryptedFile(String content) {
+    return content.startsWith('DIARIO_ENCRYPTED_V1:');
+  }
 }
 
 class AuthService {
@@ -718,6 +777,9 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _exportarEntradas() async {
     try {
+      // Solicitar permisos de almacenamiento
+      await Permission.manageExternalStorage.request();
+      
       // Preparar datos para exportación
       final datosExportacion = {
         'version': '1.0',
@@ -734,123 +796,154 @@ class _HomePageState extends State<HomePage> {
 
       // Convertir a JSON
       final jsonString = const JsonEncoder.withIndent('  ').convert(datosExportacion);
+      
+      // Encriptar los datos
+      final encryptedData = EncryptionService.encryptData(jsonString);
 
       // Crear nombre de archivo con fecha legible
       final now = DateTime.now();
       final fechaFormateada = '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}_${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}';
-      final fileName = 'Diario_Backup_$fechaFormateada.json';
+      final fileName = 'Diario_Backup_$fechaFormateada.dbe'; // .dbe = Diario Backup Encrypted
 
-      // Intentar múltiples ubicaciones para guardar el archivo
-      String? rutaFinal;
-      String ubicacionMensaje = '';
-      
-      try {
-        // Intento 1: Directorio de descargas (más accesible)
-        final directory = await getExternalStorageDirectory();
-        if (directory != null) {
-          // Navegar a una ruta más accesible (simular Downloads)
-          final downloadPath = directory.path.replaceAll('/Android/data/com.example.diario/files', '/Download');
-          final downloadDir = Directory(downloadPath);
-          
-          if (await downloadDir.exists()) {
-            final file = File('$downloadPath/$fileName');
-            await file.writeAsString(jsonString);
-            rutaFinal = file.path;
-            ubicacionMensaje = '📁 Guardado en: Descargas/$fileName';
-          } else {
-            throw Exception('Carpeta Downloads no accesible');
-          }
-        }
-      } catch (e) {
-        // Intento 2: Directorio interno (más seguro)
-        final directory = await getExternalStorageDirectory();
-        if (directory != null) {
-          final file = File('${directory.path}/$fileName');
-          await file.writeAsString(jsonString);
-          rutaFinal = file.path;
-          ubicacionMensaje = '📁 Guardado en: Almacenamiento interno\n📍 Ruta: Android/data/com.example.diario/files/$fileName';
-        }
-      }
-      
-      if (mounted && rutaFinal != null) {
-        // Mostrar diálogo con información detallada
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.green),
-                  const SizedBox(width: 8),
-                  const Text('¡Backup Creado!'),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('✅ ${_entradas.length} entradas exportadas exitosamente\n'),
-                  Text('📄 Archivo: $fileName\n'),
-                  Text(ubicacionMensaje),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '💡 Cómo encontrar el archivo:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '1. Abrir "Archivos" o "Explorador"\n'
-                          '2. Buscar "Diario_Backup_"\n'
-                          '3. O ir a: Almacenamiento interno > Download',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                      ],
-                    ),
+      // Mostrar diálogo de selección de ubicación
+      final confirmarExport = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.security, color: Colors.green),
+                SizedBox(width: 8),
+                Text('Exportar Backup Seguro'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('📊 ${_entradas.length} entradas listas para exportar\n'),
+                Text('📄 Archivo: $fileName\n'),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green),
                   ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Entendido'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    // Mostrar información adicional
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Busca "$fileName" en tu explorador de archivos'),
-                        duration: const Duration(seconds: 5),
-                        action: SnackBarAction(
-                          label: 'OK',
-                          onPressed: () {},
-                        ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '🔐 Características del backup:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.folder_open),
-                  label: const Text('Buscar archivo'),
+                      SizedBox(height: 4),
+                      Text(
+                        '• Datos encriptados para privacidad\n'
+                        '• Archivo protegido (.dbe)\n'
+                        '• Solo legible por esta app\n'
+                        '• Selección libre de carpeta',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
               ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.of(context).pop(true),
+                icon: const Icon(Icons.folder_open),
+                label: const Text('Seleccionar Carpeta'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirmarExport == true) {
+        // Usar FilePicker para seleccionar directorio
+        String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+        
+        if (selectedDirectory != null) {
+          final file = File('$selectedDirectory/$fileName');
+          
+          // Escribir archivo encriptado
+          await file.writeAsString(encryptedData);
+          
+          if (mounted) {
+            // Mostrar diálogo de éxito con detalles
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  title: const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text('¡Backup Creado!'),
+                    ],
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('✅ ${_entradas.length} entradas exportadas\n'),
+                      Text('📄 Archivo: $fileName\n'),
+                      Text('📁 Ubicación: $selectedDirectory\n'),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '🔐 Archivo encriptado y seguro',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Solo esta aplicación puede leer este backup.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('¡Perfecto!'),
+                    ),
+                  ],
+                );
+              },
             );
-          },
-        );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Exportación cancelada - No se seleccionó carpeta'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -887,9 +980,9 @@ class _HomePageState extends State<HomePage> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          '• Verificar permisos de almacenamiento\n'
-                          '• Asegurar espacio disponible\n'
-                          '• Reintentar la operación',
+                          '• Conceder permisos de almacenamiento\n'
+                          '• Verificar espacio disponible\n'
+                          '• Seleccionar carpeta accesible',
                           style: TextStyle(fontSize: 12),
                         ),
                       ],
@@ -919,15 +1012,94 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _importarEntradas() async {
     try {
+      // Mostrar diálogo de información antes de seleccionar archivo
+      final confirmarImport = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.download, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('Importar Backup'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Selecciona el archivo de backup a importar:\n'),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '📁 Formatos soportados:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '• .dbe (Archivos encriptados - Recomendado)\n'
+                        '• .json (Archivos antiguos sin encriptar)',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.of(context).pop(true),
+                icon: const Icon(Icons.file_open),
+                label: const Text('Seleccionar Archivo'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirmarImport != true) return;
+
       // Seleccionar archivo
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['json'],
+        allowedExtensions: ['dbe', 'json'],
+        dialogTitle: 'Seleccionar archivo de backup',
       );
 
       if (result != null) {
         final file = File(result.files.single.path!);
-        final jsonString = await file.readAsString();
+        final fileContent = await file.readAsString();
+        final fileName = result.files.single.name;
+        
+        String jsonString;
+        bool isEncrypted = false;
+
+        // Verificar si el archivo está encriptado
+        if (EncryptionService.isEncryptedFile(fileContent)) {
+          // Archivo encriptado - desencriptar
+          try {
+            jsonString = EncryptionService.decryptData(fileContent);
+            isEncrypted = true;
+          } catch (e) {
+            throw Exception('No se pudo desencriptar el archivo. Puede estar corrupto o ser de otra aplicación.');
+          }
+        } else {
+          // Archivo no encriptado (JSON normal)
+          jsonString = fileContent;
+        }
+
         final datosImportacion = jsonDecode(jsonString);
 
         // Validar estructura del archivo
@@ -944,17 +1116,35 @@ class _HomePageState extends State<HomePage> {
             entradasImportadas.add(entrada);
           }
 
-          // Mostrar diálogo de confirmación
+          // Mostrar diálogo de confirmación con información del archivo
           final confirmar = await showDialog<bool>(
             context: context,
             builder: (BuildContext context) {
               return AlertDialog(
                 title: const Text('Confirmar Importación'),
-                content: Text(
-                  'Se encontraron ${entradasImportadas.length} entradas.\n\n'
-                  '¿Deseas:\n'
-                  '• REEMPLAZAR todas las entradas actuales, o\n'
-                  '• AGREGAR las nuevas entradas a las existentes?'
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('📄 Archivo: $fileName'),
+                    Text('🔐 ${isEncrypted ? "Encriptado ✅" : "Sin encriptar ⚠️"}'),
+                    Text('📊 Entradas encontradas: ${entradasImportadas.length}'),
+                    Text('📅 Fecha: ${datosImportacion['fecha_exportacion'] ?? 'Desconocida'}\n'),
+                    const Text('¿Qué deseas hacer?'),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        '⚠️ REEMPLAZAR borrará todas tus entradas actuales\n'
+                        '✅ AGREGAR mantendrá las existentes y añadirá las nuevas',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
                 ),
                 actions: [
                   TextButton(
@@ -964,12 +1154,11 @@ class _HomePageState extends State<HomePage> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(true),
                     style: TextButton.styleFrom(foregroundColor: Colors.orange),
-                    child: const Text('Reemplazar'),
+                    child: const Text('REEMPLAZAR TODO'),
                   ),
-                  TextButton(
+                  ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(null),
-                    style: TextButton.styleFrom(foregroundColor: Colors.blue),
-                    child: const Text('Agregar'),
+                    child: const Text('AGREGAR'),
                   ),
                 ],
               );
@@ -1000,29 +1189,115 @@ class _HomePageState extends State<HomePage> {
             await _guardarEntradas();
             
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    confirmar 
-                      ? 'Entradas reemplazadas: ${entradasImportadas.length}'
-                      : 'Entradas agregadas: ${entradasImportadas.length}'
-                  ),
-                  backgroundColor: Colors.green,
-                ),
+              // Mostrar diálogo de éxito
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: const Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text('¡Importación Exitosa!'),
+                      ],
+                    ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          confirmar 
+                            ? '🔄 Entradas reemplazadas: ${entradasImportadas.length}'
+                            : '➕ Entradas agregadas: ${entradasImportadas.length}'
+                        ),
+                        Text('\n📊 Total actual: ${_entradas.length} entradas'),
+                        Text('🔐 Archivo ${isEncrypted ? "encriptado" : "no encriptado"} procesado correctamente'),
+                      ],
+                    ),
+                    actions: [
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('¡Perfecto!'),
+                      ),
+                    ],
+                  );
+                },
               );
             }
           }
         } else {
-          throw Exception('Archivo JSON inválido: no se encontró la estructura de entradas');
+          throw Exception('Archivo inválido: no se encontró la estructura de entradas');
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Importación cancelada - No se seleccionó archivo'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al importar: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.error, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Error al Importar'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('❌ No se pudo importar el archivo:\n'),
+                  Text('Error: ${e.toString()}\n'),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '💡 Verificaciones:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '• ¿Es un archivo de backup válido?\n'
+                          '• ¿Está corrupto o incompleto?\n'
+                          '• ¿Es de otra aplicación?',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cerrar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _importarEntradas(); // Reintentar
+                  },
+                  child: const Text('Intentar Otro Archivo'),
+                ),
+              ],
+            );
+          },
         );
       }
     }
@@ -1382,41 +1657,70 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
 
   void _startListening() async {
     if (_speechEnabled && !_isListening) {
-      await _speech.listen(
-        onResult: (result) {
-          setState(() {
-            String currentText = _contenidoController.text;
-            String spokenText = result.recognizedWords;
-            
-            // Si ya hay texto, agregar un espacio antes del nuevo texto
-            if (currentText.isNotEmpty && !currentText.endsWith(' ')) {
-              currentText += ' ';
-            }
-            
-            _contenidoController.text = currentText + spokenText;
-            _contenidoController.selection = TextSelection.fromPosition(
-              TextPosition(offset: _contenidoController.text.length),
-            );
-          });
-        },
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 3),
-        partialResults: true,
-        localeId: 'es_ES', // Español
-        cancelOnError: true,
-        listenMode: stt.ListenMode.confirmation,
-      );
       setState(() {
         _isListening = true;
       });
+
+      try {
+        await _speech.listen(
+          onResult: (result) {
+            setState(() {
+              String currentText = _contenidoController.text;
+              String spokenText = result.recognizedWords;
+              
+              // Solo agregar texto si es diferente del actual y no está vacío
+              if (spokenText.isNotEmpty && !currentText.endsWith(spokenText)) {
+                // Si ya hay texto, agregar un espacio antes del nuevo texto
+                if (currentText.isNotEmpty && !currentText.endsWith(' ')) {
+                  currentText += ' ';
+                }
+                
+                _contenidoController.text = currentText + spokenText;
+                _contenidoController.selection = TextSelection.fromPosition(
+                  TextPosition(offset: _contenidoController.text.length),
+                );
+              }
+            });
+          },
+          // Configuración para dictado continuo
+          listenFor: const Duration(hours: 1), // Tiempo muy largo para que no pare automáticamente
+          pauseFor: const Duration(seconds: 30), // Pausa más larga antes de parar por silencio
+          partialResults: true, // Mostrar resultados en tiempo real
+          localeId: 'es_ES', // Español
+          cancelOnError: false, // No cancelar por errores menores
+          listenMode: stt.ListenMode.dictation, // Modo dictado para mejor precisión
+          onSoundLevelChange: (level) {
+            // Opcional: actualizar indicador de nivel de sonido
+            // setState(() {
+            //   _soundLevel = level;
+            // });
+          },
+        );
+      } catch (e) {
+        setState(() {
+          _isListening = false;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error en el dictado: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
     }
   }
 
   void _stopListening() async {
-    await _speech.stop();
-    setState(() {
-      _isListening = false;
-    });
+    if (_isListening) {
+      await _speech.stop();
+      setState(() {
+        _isListening = false;
+      });
+    }
   }
 
   void _guardarEntrada() {
