@@ -24,10 +24,6 @@
     <!-- Permiso para mantener la pantalla activa durante dictado -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     
-    <!-- Configuración para Android 11+ - Permitir acceso a todos los archivos -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="33" />
-    
     <application
         android:label="Diario"
         android:name="${applicationName}"
