@@ -1797,9 +1797,10 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
   double _textScaleFactor = 1.0;
   bool _isZoomMode = false;
   
-  // 🎯 VARIABLES PARA CONTROLAR DICTADO SIN DUPLICACIÓN
+  // 🎯 VARIABLES PARA CONTROLAR DICTADO TOTALMENTE MANUAL
   String _lastRecognizedText = '';
   bool _isManualStop = false;
+  bool _isProcessingResult = false;
 
   @override
   void initState() {
@@ -1856,54 +1857,70 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
     try {
       setState(() {
         _isListening = true;
-        _isManualStop = false; // Reset manual stop flag
+        _isManualStop = false;
+        _lastRecognizedText = '';
+        _isProcessingResult = false;
       });
 
-      // 🎯 CONFIGURACIÓN TOTALMENTE MANUAL - NO SE PARA AUTOMÁTICAMENTE
+      // 🎯 CONFIGURACIÓN SUPER SIMPLE PARA FUNCIONAMIENTO MANUAL
       await _speech.listen(
         onResult: (result) {
-          if (mounted && result.recognizedWords.isNotEmpty && !_isManualStop) {
-            setState(() {
-              String newText = result.recognizedWords;
-              String currentText = _contenidoController.text;
+          if (mounted && !_isManualStop && !_isProcessingResult && result.recognizedWords.isNotEmpty) {
+            
+            // Solo procesar resultados finales
+            if (result.finalResult) {
+              _isProcessingResult = true;
               
-              // Solo agregar texto final y si es diferente del último fragmento
-              if (result.finalResult) {
-                // Obtener las últimas palabras del texto actual para evitar duplicación
-                List<String> currentWords = currentText.trim().split(' ');
-                List<String> newWords = newText.trim().split(' ');
-                
-                // Si el nuevo texto no está ya al final, lo agregamos
-                bool isDuplicate = false;
-                if (currentWords.length >= newWords.length) {
-                  List<String> lastWords = currentWords.sublist(currentWords.length - newWords.length);
-                  isDuplicate = lastWords.join(' ').toLowerCase() == newWords.join(' ').toLowerCase();
-                }
-                
-                if (!isDuplicate) {
-                  // Agregar espacio si es necesario
-                  if (currentText.isNotEmpty && !currentText.endsWith(' ')) {
-                    newText = ' ' + newText;
+              final newText = result.recognizedWords.trim();
+              
+              // Solo agregar si es diferente al último texto
+              if (newText != _lastRecognizedText && newText.isNotEmpty) {
+                setState(() {
+                  _lastRecognizedText = newText;
+                  final currentText = _contenidoController.text;
+                  
+                  // Preparar el texto a agregar
+                  String textToAdd = newText;
+                  
+                  // Añadir espacio si es necesario
+                  if (currentText.isNotEmpty && !currentText.endsWith(' ') && !currentText.endsWith('\n')) {
+                    textToAdd = ' ' + textToAdd;
                   }
                   
-                  // Agregar el texto al final
-                  _contenidoController.text = currentText + newText;
+                  // Capitalizar primera letra si es inicio de oración
+                  if (currentText.isEmpty || currentText.endsWith('.') || currentText.endsWith('!') || currentText.endsWith('?')) {
+                    textToAdd = textToAdd.trimLeft();
+                    if (textToAdd.isNotEmpty) {
+                      textToAdd = textToAdd[0].toUpperCase() + textToAdd.substring(1);
+                    }
+                  }
+                  
+                  // Agregar punto al final si la frase parece completa (más de 5 palabras)
+                  if (textToAdd.split(' ').length >= 5 && !textToAdd.endsWith('.') && !textToAdd.endsWith('!') && !textToAdd.endsWith('?')) {
+                    textToAdd += '.';
+                  }
+                  
+                  // Actualizar el campo de texto
+                  final newFullText = currentText + textToAdd;
+                  _contenidoController.text = newFullText;
                   _contenidoController.selection = TextSelection.fromPosition(
-                    TextPosition(offset: _contenidoController.text.length),
+                    TextPosition(offset: newFullText.length),
                   );
-                }
+                });
               }
-            });
+              
+              _isProcessingResult = false;
+            }
           }
         },
-        // 🚀 CONFIGURACIÓN PARA FUNCIONAMIENTO TOTALMENTE MANUAL
-        listenFor: const Duration(hours: 1), // Muy largo para que nunca se pare solo
-        pauseFor: const Duration(seconds: 30), // Pausa máxima antes de continuar
-        partialResults: false, // Sin resultados parciales = sin duplicación
-        onSoundLevelChange: null, // Sin procesamiento de nivel de sonido
-        cancelOnError: false, // No cancelar por errores
-        listenMode: stt.ListenMode.confirmation, // Modo más estable
-        localeId: 'es_ES', // Español
+        // CONFIGURACIÓN BÁSICA PARA MÁXIMA ESTABILIDAD
+        listenFor: const Duration(minutes: 60), // Máximo tiempo
+        pauseFor: const Duration(seconds: 5), // Pausa corta entre frases
+        partialResults: false, // Solo resultados finales
+        onSoundLevelChange: null, // Sin procesamiento adicional
+        cancelOnError: false, // No cancelar automáticamente
+        listenMode: stt.ListenMode.search, // Modo más simple y estable
+        localeId: 'es_ES',
       );
 
     } catch (e) {
@@ -1911,6 +1928,7 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
       if (mounted) {
         setState(() {
           _isListening = false;
+          _isProcessingResult = false;
         });
         
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1935,15 +1953,19 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
   void _stopListening() async {
     if (_speechEnabled && _isListening) {
       _isManualStop = true; // Marcar como parada manual
+      _isProcessingResult = false; // Detener procesamiento
+      
       await _speech.stop();
       setState(() {
         _isListening = false;
       });
       
-      // Resetear después de un pequeño delay
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        _isManualStop = false;
-        _lastRecognizedText = '';
+      // Limpiar flags después de un delay
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _isManualStop = false;
+          _lastRecognizedText = '';
+        }
       });
     }
   }
