@@ -1856,40 +1856,54 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
     try {
       setState(() {
         _isListening = true;
+        _isManualStop = false; // Reset manual stop flag
       });
 
+      // 🎯 CONFIGURACIÓN TOTALMENTE MANUAL - NO SE PARA AUTOMÁTICAMENTE
       await _speech.listen(
         onResult: (result) {
-          if (mounted && result.recognizedWords.isNotEmpty) {
+          if (mounted && result.recognizedWords.isNotEmpty && !_isManualStop) {
             setState(() {
-              // 🎯 SISTEMA ANTI-DUPLICACIÓN MEJORADO
               String newText = result.recognizedWords;
               String currentText = _contenidoController.text;
               
-              // Solo reemplazar si es texto final (no parcial) y es diferente
-              if (result.finalResult && newText != currentText) {
-                // Si ya hay contenido, agregar espacio antes del nuevo texto
-                if (currentText.isNotEmpty && !currentText.endsWith(' ')) {
-                  newText = ' ' + newText;
+              // Solo agregar texto final y si es diferente del último fragmento
+              if (result.finalResult) {
+                // Obtener las últimas palabras del texto actual para evitar duplicación
+                List<String> currentWords = currentText.trim().split(' ');
+                List<String> newWords = newText.trim().split(' ');
+                
+                // Si el nuevo texto no está ya al final, lo agregamos
+                bool isDuplicate = false;
+                if (currentWords.length >= newWords.length) {
+                  List<String> lastWords = currentWords.sublist(currentWords.length - newWords.length);
+                  isDuplicate = lastWords.join(' ').toLowerCase() == newWords.join(' ').toLowerCase();
                 }
                 
-                // Agregar el texto al final del contenido existente
-                _contenidoController.text = currentText + newText;
-                _contenidoController.selection = TextSelection.fromPosition(
-                  TextPosition(offset: _contenidoController.text.length),
-                );
+                if (!isDuplicate) {
+                  // Agregar espacio si es necesario
+                  if (currentText.isNotEmpty && !currentText.endsWith(' ')) {
+                    newText = ' ' + newText;
+                  }
+                  
+                  // Agregar el texto al final
+                  _contenidoController.text = currentText + newText;
+                  _contenidoController.selection = TextSelection.fromPosition(
+                    TextPosition(offset: _contenidoController.text.length),
+                  );
+                }
               }
             });
           }
         },
-        // 🎯 CONFIGURACIÓN PERFECTA PARA 2 MINUTOS CONTINUOS SIN PARADAS
-        listenFor: const Duration(minutes: 2), // Exactamente 2 minutos
-        pauseFor: const Duration(minutes: 2), // Sin pausas automáticas por silencio
-        partialResults: false, // ✅ SIN resultados parciales = SIN duplicación
-        onSoundLevelChange: null, // Sin procesamiento de nivel
-        cancelOnError: false, // No cancelar automáticamente
-        listenMode: stt.ListenMode.dictation, // Modo dictado optimizado
-        localeId: 'es_ES', // Español de España para mejor reconocimiento
+        // 🚀 CONFIGURACIÓN PARA FUNCIONAMIENTO TOTALMENTE MANUAL
+        listenFor: const Duration(hours: 1), // Muy largo para que nunca se pare solo
+        pauseFor: const Duration(seconds: 30), // Pausa máxima antes de continuar
+        partialResults: false, // Sin resultados parciales = sin duplicación
+        onSoundLevelChange: null, // Sin procesamiento de nivel de sonido
+        cancelOnError: false, // No cancelar por errores
+        listenMode: stt.ListenMode.confirmation, // Modo más estable
+        localeId: 'es_ES', // Español
       );
 
     } catch (e) {
