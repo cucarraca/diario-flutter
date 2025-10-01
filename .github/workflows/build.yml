@@ -1,4 +1,4 @@
-name: Build APK - Nuevos Temas Oscuros
+name: Build APK - Botones Micrófono Separados
 
 on:
   push:
@@ -31,62 +31,65 @@ jobs:
       run: flutter pub get
 
     - name: Build APK
-      run: flutter build apk --release --build-name="NUEVOS-TEMAS-v1.0.19" --build-number=19
+      run: flutter build apk --release --build-name="MICROFONO-SEPARADO-v1.0.20" --build-number=20
 
     - name: Rename APK
       run: |
         mkdir -p apk_outputs
-        cp build/app/outputs/flutter-apk/app-release.apk apk_outputs/Diario-NUEVOS-TEMAS-v1.0.19.apk
+        cp build/app/outputs/flutter-apk/app-release.apk apk_outputs/Diario-MICROFONO-SEPARADO-v1.0.20.apk
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Diario-NUEVOS-TEMAS-v1.0.19
-        path: apk_outputs/Diario-NUEVOS-TEMAS-v1.0.19.apk
+        name: Diario-MICROFONO-SEPARADO-v1.0.20
+        path: apk_outputs/Diario-MICROFONO-SEPARADO-v1.0.20.apk
         retention-days: 30
 
     - name: Create Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: v1.0.19-nuevos-temas
-        name: Diario Personal - Nuevos Temas Oscuros v1.0.19
+        tag_name: v1.0.20-microfono-separado
+        name: Diario Personal - Botones Micrófono Separados v1.0.20
         body: |
-          🎨 **NUEVOS TEMAS OSCUROS ESPECTACULARES** - ¡8 TEMAS ADICIONALES!
+          🎤 **CONTROL TOTAL DEL MICRÓFONO** - ¡BOTONES SEPARADOS!
           
-          ## ✨ **TEMAS AÑADIDOS:**
+          ## ✨ **NUEVAS FUNCIONALIDADES:**
           
-          ### 🌙 **Nuevos temas disponibles:**
-          - 🌟 **Neón Oscuro** - Colores brillantes sobre fondo negro
-          - 🤖 **Cyberpunk** - Estilo futurista amarillo/rojo
-          - 🌊 **Azul Medianoche** - Tonos azules profundos
-          - 🌲 **Bosque** - Verde oscuro y natural
-          - 🧛 **Vampiro** - Rojo sangre y púrpura
-          - 💚 **Matrix** - Verde sobre negro estilo Matrix
-          - 🎆 **Dracula** - El clásico tema oscuro (mejorado)
-          - 🌑 **Tema Oscuro** - Oscuro tradicional
+          ### 🎯 **Control Manual del Dictado:**
+          - ✅ **Botón VERDE** 🟢 → Para ACTIVAR el micrófono
+          - ❌ **Botón ROJO** 🔴 → Para DETENER el micrófono
+          - 🎛️ **Control 100% manual** - Ya no se detiene automáticamente
+          - 📍 **Botones separados** en campo de texto Y en la parte inferior
           
-          ### 🎯 **FUNCIONES COMPLETAS:**
-          - 🎤 **Dictado de voz perfecto** (control 100% manual)
+          ### 🔧 **Mejoras en Dictado:**
+          - 🚫 Sin paradas automáticas molestas
+          - ⏰ Dictado continuo hasta que TÚ lo pares
+          - 🎯 Activación/desactivación totalmente manual
+          - 🔄 Mayor estabilidad en el reconocimiento de voz
+          - 📝 Mejor formateo automático del texto
+          
+          ### 🎨 **Funciones Completas Disponibles:**
+          - 🎤 **Dictado con botones separados** (NUEVO)
           - 🗑️ **Eliminación sin errores**
-          - 📁 **Importar/exportar entradas**
-          - 🔐 **Sistema de contraseñas**
-          - 🔍 **Zoom en pantalla**
+          - 📁 **Importar/exportar entradas seguras**
+          - 🔐 **Sistema de contraseñas robusto**
+          - 🔍 **Zoom en pantalla interactivo**
           - ✏️ **Editar entradas guardadas**
           - 🎨 **9 TEMAS DIFERENTES** (1 claro + 8 oscuros)
           
-          ### 🖼️ **Características visuales:**
-          - Paletas de colores cuidadosamente diseñadas
-          - Contrastes optimizados para facilidad de lectura
-          - Efectos visuales únicos en cada tema
-          - Bordes y sombras personalizadas
+          ### 🖼️ **Interfaz Mejorada:**
+          - 🟢 Botón verde para iniciar dictado
+          - 🔴 Botón rojo para detener dictado
+          - 👆 Botones más claros y fáciles de usar
+          - 🎯 Indicadores visuales del estado del micrófono
           
           ### 📱 **INSTALACIÓN:**
-          Descarga `Diario-NUEVOS-TEMAS-v1.0.19.apk` e instálala.
+          Descarga `Diario-MICROFONO-SEPARADO-v1.0.20.apk` e instálala.
           
-          **¡Disfruta de la variedad de temas oscuros espectaculares!** 🌟
+          **¡Ahora tienes control total sobre el dictado de voz!** 🎤
         files: |
-          apk_outputs/Diario-NUEVOS-TEMAS-v1.0.19.apk
+          apk_outputs/Diario-MICROFONO-SEPARADO-v1.0.20.apk
         draft: false
         prerelease: false
       env:
