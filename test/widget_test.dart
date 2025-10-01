@@ -8,7 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:diario_flutter/main.dart';
+import 'package:diario/main.dart';
 
 void main() {
   testWidgets('Diario app authentication and themes smoke test', (WidgetTester tester) async {

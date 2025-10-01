@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'dart:typed_data';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 void main() {
   runApp(const DiarioApp());
@@ -208,7 +211,7 @@ class _DiarioAppState extends State<DiarioApp> {
     }
 
     return MaterialApp(
-      title: 'Mi Diario Personal',
+      title: 'Diario',
       theme: themeData,
       home: AuthPage(onThemeChanged: changeTheme, currentTheme: _currentTheme),
     );
@@ -216,7 +219,7 @@ class _DiarioAppState extends State<DiarioApp> {
 }
 
 class EntradaDiario {
-  final String id;
+  String id;
   final String titulo;
   final String contenido;
   final DateTime fecha;
@@ -713,6 +716,169 @@ class _HomePageState extends State<HomePage> {
     _guardarEntradas();
   }
 
+  Future<void> _exportarEntradas() async {
+    try {
+      // Preparar datos para exportación
+      final datosExportacion = {
+        'version': '1.0',
+        'fecha_exportacion': DateTime.now().toIso8601String(),
+        'total_entradas': _entradas.length,
+        'entradas': _entradas.map((entrada) => {
+          'id': entrada.id,
+          'titulo': entrada.titulo,
+          'contenido': entrada.contenido,
+          'fecha': entrada.fecha.toIso8601String(),
+        }).toList(),
+      };
+
+      // Convertir a JSON
+      final jsonString = const JsonEncoder.withIndent('  ').convert(datosExportacion);
+
+      // Obtener directorio de descargas
+      final directory = await getExternalStorageDirectory();
+      if (directory != null) {
+        final fileName = 'diario_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+        final file = File('${directory.path}/$fileName');
+        
+        // Escribir archivo
+        await file.writeAsString(jsonString);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Entradas exportadas: $fileName'),
+              backgroundColor: Colors.green,
+              action: SnackBarAction(
+                label: 'OK',
+                onPressed: () {},
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al exportar: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _importarEntradas() async {
+    try {
+      // Seleccionar archivo
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (result != null) {
+        final file = File(result.files.single.path!);
+        final jsonString = await file.readAsString();
+        final datosImportacion = jsonDecode(jsonString);
+
+        // Validar estructura del archivo
+        if (datosImportacion['entradas'] != null) {
+          final entradasImportadas = <EntradaDiario>[];
+          
+          for (final entradaData in datosImportacion['entradas']) {
+            final entrada = EntradaDiario(
+              id: entradaData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+              titulo: entradaData['titulo'] ?? 'Sin título',
+              contenido: entradaData['contenido'] ?? '',
+              fecha: DateTime.tryParse(entradaData['fecha']) ?? DateTime.now(),
+            );
+            entradasImportadas.add(entrada);
+          }
+
+          // Mostrar diálogo de confirmación
+          final confirmar = await showDialog<bool>(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Confirmar Importación'),
+                content: Text(
+                  'Se encontraron ${entradasImportadas.length} entradas.\n\n'
+                  '¿Deseas:\n'
+                  '• REEMPLAZAR todas las entradas actuales, o\n'
+                  '• AGREGAR las nuevas entradas a las existentes?'
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancelar'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: TextButton.styleFrom(foregroundColor: Colors.orange),
+                    child: const Text('Reemplazar'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(null),
+                    style: TextButton.styleFrom(foregroundColor: Colors.blue),
+                    child: const Text('Agregar'),
+                  ),
+                ],
+              );
+            },
+          );
+
+          if (confirmar != null) {
+            setState(() {
+              if (confirmar) {
+                // Reemplazar todas las entradas
+                _entradas = entradasImportadas;
+              } else {
+                // Agregar nuevas entradas (verificar IDs únicos)
+                for (final nuevaEntrada in entradasImportadas) {
+                  // Si ya existe una entrada con el mismo ID, generar uno nuevo
+                  if (_entradas.any((e) => e.id == nuevaEntrada.id)) {
+                    nuevaEntrada.id = DateTime.now().millisecondsSinceEpoch.toString() + 
+                                    '_${_entradas.length}';
+                  }
+                  _entradas.add(nuevaEntrada);
+                }
+              }
+              
+              // Ordenar entradas por fecha
+              _entradas.sort((a, b) => b.fecha.compareTo(a.fecha));
+            });
+
+            await _guardarEntradas();
+            
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    confirmar 
+                      ? 'Entradas reemplazadas: ${entradasImportadas.length}'
+                      : 'Entradas agregadas: ${entradasImportadas.length}'
+                  ),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          }
+        } else {
+          throw Exception('Archivo JSON inválido: no se encontró la estructura de entradas');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al importar: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _mostrarMenuConfiguracion() {
     showModalBottomSheet(
       context: context,
@@ -737,6 +903,26 @@ class _HomePageState extends State<HomePage> {
                   _mostrarSelectorTemas();
                 },
               ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.upload, color: Colors.green),
+                title: const Text('Exportar Entradas'),
+                subtitle: Text('Crear backup (${_entradas.length} entradas)'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _exportarEntradas();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.download, color: Colors.blue),
+                title: const Text('Importar Entradas'),
+                subtitle: const Text('Restaurar desde archivo JSON'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _importarEntradas();
+                },
+              ),
+              const Divider(),
               ListTile(
                 leading: const Icon(Icons.lock),
                 title: const Text('Cambiar Contraseña'),
