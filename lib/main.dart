@@ -777,9 +777,62 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _exportarEntradas() async {
     try {
-      // Solicitar permisos de almacenamiento
-      await Permission.manageExternalStorage.request();
+      // Solicitar TODOS los permisos necesarios para Android moderno
+      Map<Permission, PermissionStatus> permisos = await [
+        Permission.storage,
+        Permission.manageExternalStorage,
+        Permission.accessMediaLocation,
+      ].request();
       
+      // Verificar si tenemos al menos algunos permisos básicos
+      bool tienePermisos = permisos[Permission.storage]?.isGranted == true ||
+                           permisos[Permission.manageExternalStorage]?.isGranted == true;
+      
+      if (!tienePermisos) {
+        // Mostrar diálogo explicativo si no hay permisos
+        final bool? abrirConfiguracion = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Permisos Necesarios'),
+              ],
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Para exportar archivos necesitas conceder permisos de almacenamiento.\n'),
+                Text('📁 La aplicación necesita acceso para:'),
+                Text('• Guardar archivos de backup'),
+                Text('• Crear carpetas personalizadas'),
+                Text('• Acceso completo al almacenamiento\n'),
+                Text('¿Quieres abrir la configuración para conceder permisos?'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Abrir Configuración'),
+              ),
+            ],
+          ),
+        );
+        
+        if (abrirConfiguracion == true) {
+          await openAppSettings();
+          return;
+        } else {
+          return;
+        }
+      }
+
       // Preparar datos para exportación
       final datosExportacion = {
         'version': '1.0',
@@ -842,7 +895,8 @@ class _HomePageState extends State<HomePage> {
                         '• Datos encriptados para privacidad\n'
                         '• Archivo protegido (.dbe)\n'
                         '• Solo legible por esta app\n'
-                        '• Selección libre de carpeta',
+                        '• Selección libre de carpeta\n'
+                        '• Permisos completos garantizados',
                         style: TextStyle(fontSize: 12),
                       ),
                     ],
@@ -867,72 +921,87 @@ class _HomePageState extends State<HomePage> {
 
       if (confirmarExport == true) {
         // Usar FilePicker para seleccionar directorio
-        String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+        String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
+          dialogTitle: 'Selecciona dónde guardar el backup',
+          lockParentWindow: true,
+        );
         
         if (selectedDirectory != null) {
-          final file = File('$selectedDirectory/$fileName');
-          
-          // Escribir archivo encriptado
-          await file.writeAsString(encryptedData);
-          
-          if (mounted) {
-            // Mostrar diálogo de éxito con detalles
-            showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                return AlertDialog(
-                  title: const Row(
-                    children: [
-                      Icon(Icons.check_circle, color: Colors.green),
-                      SizedBox(width: 8),
-                      Text('¡Backup Creado!'),
-                    ],
-                  ),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('✅ ${_entradas.length} entradas exportadas\n'),
-                      Text('📄 Archivo: $fileName\n'),
-                      Text('📁 Ubicación: $selectedDirectory\n'),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '🔐 Archivo encriptado y seguro',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+          try {
+            final file = File('$selectedDirectory/$fileName');
+            
+            // Verificar que podemos escribir en el directorio
+            final testFile = File('$selectedDirectory/.test_write_diario');
+            await testFile.writeAsString('test');
+            await testFile.delete();
+            
+            // Escribir archivo encriptado
+            await file.writeAsString(encryptedData);
+            
+            if (mounted) {
+              // Mostrar diálogo de éxito con detalles
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: const Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text('¡Backup Creado!'),
+                      ],
+                    ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('✅ ${_entradas.length} entradas exportadas\n'),
+                        Text('📄 Archivo: $fileName\n'),
+                        Text('📁 Ubicación: $selectedDirectory\n'),
+                        Text('📦 Tamaño: ${(encryptedData.length / 1024).toStringAsFixed(1)} KB\n'),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '🔐 Archivo encriptado y seguro',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Solo esta aplicación puede leer este backup.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              const SizedBox(height: 4),
+                              Text(
+                                '✅ Permisos verificados\n'
+                                '✅ Archivo guardado correctamente\n'
+                                '✅ Solo esta app puede leerlo',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                      ],
+                    ),
+                    actions: [
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('¡Perfecto!'),
                       ),
                     ],
-                  ),
-                  actions: [
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('¡Perfecto!'),
-                    ),
-                  ],
-                );
-              },
-            );
+                  );
+                },
+              );
+            }
+          } catch (e) {
+            throw Exception('No se puede escribir en la carpeta seleccionada: ${e.toString()}');
           }
         } else {
           if (mounted) {
@@ -980,9 +1049,10 @@ class _HomePageState extends State<HomePage> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          '• Conceder permisos de almacenamiento\n'
+                          '• Conceder todos los permisos de almacenamiento\n'
                           '• Verificar espacio disponible\n'
-                          '• Seleccionar carpeta accesible',
+                          '• Seleccionar carpeta con permisos de escritura\n'
+                          '• Reiniciar la aplicación tras conceder permisos',
                           style: TextStyle(fontSize: 12),
                         ),
                       ],
@@ -994,6 +1064,13 @@ class _HomePageState extends State<HomePage> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Cerrar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    openAppSettings();
+                  },
+                  child: const Text('Abrir Configuración'),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -1650,20 +1727,54 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
     }
   }
 
-  void _initSpeech() async {
-    _speechEnabled = await _speech.initialize();
-    setState(() {});
+  Future<void> _initSpeech() async {
+    try {
+      // Solicitar permisos de audio primero
+      await Permission.microphone.request();
+      
+      _speechEnabled = await _speech.initialize(
+        onError: (errorNotification) {
+          print('Error de dictado: ${errorNotification.errorMsg}');
+          if (mounted) {
+            setState(() {
+              _isListening = false;
+            });
+          }
+        },
+        onStatus: (status) {
+          print('Estado del dictado: $status');
+          if (status == 'notListening' || status == 'done') {
+            if (mounted && _isListening) {
+              // Si se paró automáticamente, reiniciar si el usuario no lo paró manualmente
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted && _isListening && _speechEnabled) {
+                  _startListening(); // Reiniciar automáticamente
+                }
+              });
+            }
+          }
+        },
+      );
+      setState(() {});
+    } catch (e) {
+      print('Error inicializando dictado: $e');
+      setState(() {
+        _speechEnabled = false;
+      });
+    }
   }
 
   void _startListening() async {
-    if (_speechEnabled && !_isListening) {
+    if (!_speechEnabled || _isListening) return;
+    
+    try {
       setState(() {
         _isListening = true;
       });
 
-      try {
-        await _speech.listen(
-          onResult: (result) {
+      await _speech.listen(
+        onResult: (result) {
+          if (mounted) {
             setState(() {
               String currentText = _contenidoController.text;
               String spokenText = result.recognizedWords;
@@ -1671,7 +1782,7 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
               // Solo agregar texto si es diferente del actual y no está vacío
               if (spokenText.isNotEmpty && !currentText.endsWith(spokenText)) {
                 // Si ya hay texto, agregar un espacio antes del nuevo texto
-                if (currentText.isNotEmpty && !currentText.endsWith(' ')) {
+                if (currentText.isNotEmpty && !currentText.endsWith(' ') && !spokenText.startsWith(' ')) {
                   currentText += ' ';
                 }
                 
@@ -1681,41 +1792,46 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
                 );
               }
             });
-          },
-          // Configuración para dictado continuo
-          listenFor: const Duration(hours: 1), // Tiempo muy largo para que no pare automáticamente
-          pauseFor: const Duration(seconds: 30), // Pausa más larga antes de parar por silencio
-          partialResults: true, // Mostrar resultados en tiempo real
-          localeId: 'es_ES', // Español
-          cancelOnError: false, // No cancelar por errores menores
-          listenMode: stt.ListenMode.dictation, // Modo dictado para mejor precisión
-          onSoundLevelChange: (level) {
-            // Opcional: actualizar indicador de nivel de sonido
-            // setState(() {
-            //   _soundLevel = level;
-            // });
-          },
-        );
-      } catch (e) {
+          }
+        },
+        // Configuración agresiva para dictado realmente continuo
+        listenFor: const Duration(minutes: 60), // 60 minutos máximo
+        pauseFor: const Duration(minutes: 5), // 5 minutos de pausa antes de parar
+        partialResults: true, // Mostrar resultados parciales
+        onSoundLevelChange: null, // Sin procesamiento de nivel de sonido
+        cancelOnError: false, // No cancelar por errores menores
+        listenMode: stt.ListenMode.dictation, // Modo dictado optimizado
+        localeId: 'es_ES', // Español de España
+      );
+
+    } catch (e) {
+      print('Error iniciando dictado: $e');
+      if (mounted) {
         setState(() {
           _isListening = false;
         });
         
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error en el dictado: ${e.toString()}'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error en el dictado: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Reintentar',
+              onPressed: () {
+                Future.delayed(const Duration(milliseconds: 500), () {
+                  _startListening();
+                });
+              },
             ),
-          );
-        }
+          ),
+        );
       }
     }
   }
 
   void _stopListening() async {
-    if (_isListening) {
+    if (_speechEnabled && _isListening) {
       await _speech.stop();
       setState(() {
         _isListening = false;
