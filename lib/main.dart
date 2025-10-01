@@ -1224,7 +1224,7 @@ class _HomePageState extends State<HomePage> {
           }
 
           // Mostrar diálogo de confirmación con información del archivo
-          final confirmar = await showDialog<bool>(
+          final accionImportar = await showDialog<String>(
             context: context,
             builder: (BuildContext context) {
               return AlertDialog(
@@ -1255,16 +1255,16 @@ class _HomePageState extends State<HomePage> {
                 ),
                 actions: [
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
+                    onPressed: () => Navigator.of(context).pop('cancelar'),
                     child: const Text('Cancelar'),
                   ),
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(true),
+                    onPressed: () => Navigator.of(context).pop('reemplazar'),
                     style: TextButton.styleFrom(foregroundColor: Colors.orange),
                     child: const Text('REEMPLAZAR TODO'),
                   ),
                   ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(null),
+                    onPressed: () => Navigator.of(context).pop('agregar'),
                     child: const Text('AGREGAR'),
                   ),
                 ],
@@ -1272,12 +1272,12 @@ class _HomePageState extends State<HomePage> {
             },
           );
 
-          if (confirmar != null) {
+          if (accionImportar != null && accionImportar != 'cancelar') {
             setState(() {
-              if (confirmar) {
+              if (accionImportar == 'reemplazar') {
                 // Reemplazar todas las entradas
                 _entradas = entradasImportadas;
-              } else {
+              } else if (accionImportar == 'agregar') {
                 // Agregar nuevas entradas (verificar IDs únicos)
                 for (final nuevaEntrada in entradasImportadas) {
                   // Si ya existe una entrada con el mismo ID, generar uno nuevo
@@ -1313,7 +1313,7 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          confirmar 
+                          accionImportar == 'reemplazar'
                             ? '🔄 Entradas reemplazadas: ${entradasImportadas.length}'
                             : '➕ Entradas agregadas: ${entradasImportadas.length}'
                         ),
