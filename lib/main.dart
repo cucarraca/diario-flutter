@@ -1796,6 +1796,10 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
   bool _speechEnabled = false;
   double _textScaleFactor = 1.0;
   bool _isZoomMode = false;
+  
+  // 🎯 VARIABLES PARA CONTROLAR DICTADO SIN DUPLICACIÓN
+  String _lastRecognizedText = '';
+  bool _isManualStop = false;
 
   @override
   void initState() {
@@ -1826,13 +1830,12 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
         },
         onStatus: (status) {
           print('Estado del dictado: $status');
+          // ✅ ELIMINADO EL REINICIO AUTOMÁTICO PROBLEMÁTICO
+          // Solo cambiar estado, no reiniciar automáticamente
           if (status == 'notListening' || status == 'done') {
-            if (mounted && _isListening) {
-              // Si se paró automáticamente, reiniciar si el usuario no lo paró manualmente
-              Future.delayed(const Duration(milliseconds: 500), () {
-                if (mounted && _isListening && _speechEnabled) {
-                  _startListening(); // Reiniciar automáticamente
-                }
+            if (mounted) {
+              setState(() {
+                _isListening = false;
               });
             }
           }
@@ -1857,19 +1860,21 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
 
       await _speech.listen(
         onResult: (result) {
-          if (mounted) {
+          if (mounted && result.recognizedWords.isNotEmpty) {
             setState(() {
+              // 🎯 SISTEMA ANTI-DUPLICACIÓN MEJORADO
+              String newText = result.recognizedWords;
               String currentText = _contenidoController.text;
-              String spokenText = result.recognizedWords;
               
-              // Solo agregar texto si es diferente del actual y no está vacío
-              if (spokenText.isNotEmpty && !currentText.endsWith(spokenText)) {
-                // Si ya hay texto, agregar un espacio antes del nuevo texto
-                if (currentText.isNotEmpty && !currentText.endsWith(' ') && !spokenText.startsWith(' ')) {
-                  currentText += ' ';
+              // Solo reemplazar si es texto final (no parcial) y es diferente
+              if (result.finalResult && newText != currentText) {
+                // Si ya hay contenido, agregar espacio antes del nuevo texto
+                if (currentText.isNotEmpty && !currentText.endsWith(' ')) {
+                  newText = ' ' + newText;
                 }
                 
-                _contenidoController.text = currentText + spokenText;
+                // Agregar el texto al final del contenido existente
+                _contenidoController.text = currentText + newText;
                 _contenidoController.selection = TextSelection.fromPosition(
                   TextPosition(offset: _contenidoController.text.length),
                 );
@@ -1877,14 +1882,14 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
             });
           }
         },
-        // 🎤 CONFIGURACIÓN EXTREMA PARA DICTADO CONTINUO DE 2 MINUTOS
-        listenFor: const Duration(minutes: 2), // 2 minutos como solicitaste
-        pauseFor: const Duration(seconds: 10), // Solo 10 segundos de pausa máxima
-        partialResults: true, // Mostrar resultados parciales
-        onSoundLevelChange: null, // Sin procesamiento de nivel de sonido
-        cancelOnError: false, // No cancelar por errores menores
+        // 🎯 CONFIGURACIÓN PERFECTA PARA 2 MINUTOS CONTINUOS SIN PARADAS
+        listenFor: const Duration(minutes: 2), // Exactamente 2 minutos
+        pauseFor: const Duration(minutes: 2), // Sin pausas automáticas por silencio
+        partialResults: false, // ✅ SIN resultados parciales = SIN duplicación
+        onSoundLevelChange: null, // Sin procesamiento de nivel
+        cancelOnError: false, // No cancelar automáticamente
         listenMode: stt.ListenMode.dictation, // Modo dictado optimizado
-        localeId: 'es_ES', // Español de España
+        localeId: 'es_ES', // Español de España para mejor reconocimiento
       );
 
     } catch (e) {
@@ -1915,9 +1920,16 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
 
   void _stopListening() async {
     if (_speechEnabled && _isListening) {
+      _isManualStop = true; // Marcar como parada manual
       await _speech.stop();
       setState(() {
         _isListening = false;
+      });
+      
+      // Resetear después de un pequeño delay
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        _isManualStop = false;
+        _lastRecognizedText = '';
       });
     }
   }
