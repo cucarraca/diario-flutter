@@ -721,6 +721,7 @@ class _HomePageState extends State<HomePage> {
       // Preparar datos para exportación
       final datosExportacion = {
         'version': '1.0',
+        'aplicacion': 'Diario - Diario Personal',
         'fecha_exportacion': DateTime.now().toIso8601String(),
         'total_entradas': _entradas.length,
         'entradas': _entradas.map((entrada) => {
@@ -734,35 +735,183 @@ class _HomePageState extends State<HomePage> {
       // Convertir a JSON
       final jsonString = const JsonEncoder.withIndent('  ').convert(datosExportacion);
 
-      // Obtener directorio de descargas
-      final directory = await getExternalStorageDirectory();
-      if (directory != null) {
-        final fileName = 'diario_backup_${DateTime.now().millisecondsSinceEpoch}.json';
-        final file = File('${directory.path}/$fileName');
-        
-        // Escribir archivo
-        await file.writeAsString(jsonString);
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Entradas exportadas: $fileName'),
-              backgroundColor: Colors.green,
-              action: SnackBarAction(
-                label: 'OK',
-                onPressed: () {},
-              ),
-            ),
-          );
+      // Crear nombre de archivo con fecha legible
+      final now = DateTime.now();
+      final fechaFormateada = '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}_${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}';
+      final fileName = 'Diario_Backup_$fechaFormateada.json';
+
+      // Intentar múltiples ubicaciones para guardar el archivo
+      String? rutaFinal;
+      String ubicacionMensaje = '';
+      
+      try {
+        // Intento 1: Directorio de descargas (más accesible)
+        final directory = await getExternalStorageDirectory();
+        if (directory != null) {
+          // Navegar a una ruta más accesible (simular Downloads)
+          final downloadPath = directory.path.replaceAll('/Android/data/com.example.diario/files', '/Download');
+          final downloadDir = Directory(downloadPath);
+          
+          if (await downloadDir.exists()) {
+            final file = File('$downloadPath/$fileName');
+            await file.writeAsString(jsonString);
+            rutaFinal = file.path;
+            ubicacionMensaje = '📁 Guardado en: Descargas/$fileName';
+          } else {
+            throw Exception('Carpeta Downloads no accesible');
+          }
         }
+      } catch (e) {
+        // Intento 2: Directorio interno (más seguro)
+        final directory = await getExternalStorageDirectory();
+        if (directory != null) {
+          final file = File('${directory.path}/$fileName');
+          await file.writeAsString(jsonString);
+          rutaFinal = file.path;
+          ubicacionMensaje = '📁 Guardado en: Almacenamiento interno\n📍 Ruta: Android/data/com.example.diario/files/$fileName';
+        }
+      }
+      
+      if (mounted && rutaFinal != null) {
+        // Mostrar diálogo con información detallada
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.green),
+                  const SizedBox(width: 8),
+                  const Text('¡Backup Creado!'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('✅ ${_entradas.length} entradas exportadas exitosamente\n'),
+                  Text('📄 Archivo: $fileName\n'),
+                  Text(ubicacionMensaje),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '💡 Cómo encontrar el archivo:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '1. Abrir "Archivos" o "Explorador"\n'
+                          '2. Buscar "Diario_Backup_"\n'
+                          '3. O ir a: Almacenamiento interno > Download',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Entendido'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    // Mostrar información adicional
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Busca "$fileName" en tu explorador de archivos'),
+                        duration: const Duration(seconds: 5),
+                        action: SnackBarAction(
+                          label: 'OK',
+                          onPressed: () {},
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.folder_open),
+                  label: const Text('Buscar archivo'),
+                ),
+              ],
+            );
+          },
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al exportar: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.error, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Error al Exportar'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('❌ No se pudo crear el backup:\n'),
+                  Text('Error: ${e.toString()}\n'),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '💡 Posibles soluciones:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '• Verificar permisos de almacenamiento\n'
+                          '• Asegurar espacio disponible\n'
+                          '• Reintentar la operación',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cerrar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _exportarEntradas(); // Reintentar
+                  },
+                  child: const Text('Reintentar'),
+                ),
+              ],
+            );
+          },
         );
       }
     }
