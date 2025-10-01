@@ -18,6 +18,12 @@ enum AppTheme {
   light,
   dark,
   dracula,
+  neonDark,
+  cyberpunk,
+  midnightBlue,
+  forest,
+  vampire,
+  matrix,
 }
 
 // Clase para gestionar temas
@@ -154,6 +160,271 @@ class ThemeService {
     );
   }
 
+  static ThemeData getNeonDarkTheme() {
+    const neonBackground = Color(0xFF0A0A0A);
+    const neonSurface = Color(0xFF1A1A1A);
+    const neonForeground = Color(0xFFE0E0E0);
+    const neonCyan = Color(0xFF00FFFF);
+    const neonPink = Color(0xFFFF00FF);
+    const neonGreen = Color(0xFF00FF00);
+    const neonBlue = Color(0xFF0080FF);
+
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: neonCyan,
+      scaffoldBackgroundColor: neonBackground,
+      colorScheme: const ColorScheme.dark(
+        primary: neonCyan,
+        secondary: neonPink,
+        surface: neonSurface,
+        background: neonBackground,
+        onPrimary: neonBackground,
+        onSecondary: neonBackground,
+        onSurface: neonForeground,
+        onBackground: neonForeground,
+      ),
+      useMaterial3: true,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: neonSurface,
+        foregroundColor: neonCyan,
+        centerTitle: true,
+        elevation: 2,
+      ),
+      cardTheme: CardThemeData(
+        color: neonSurface,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          side: BorderSide(color: neonCyan.withOpacity(0.3), width: 1),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: neonCyan,
+        foregroundColor: neonBackground,
+        elevation: 6,
+      ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: neonForeground),
+        bodyMedium: TextStyle(color: neonForeground),
+        titleLarge: TextStyle(color: neonCyan, fontWeight: FontWeight.bold),
+        titleMedium: TextStyle(color: neonCyan),
+      ),
+      iconTheme: const IconThemeData(color: neonCyan),
+    );
+  }
+
+  static ThemeData getCyberpunkTheme() {
+    const cyberpunkBackground = Color(0xFF0D1117);
+    const cyberpunkSurface = Color(0xFF161B22);
+    const cyberpunkForeground = Color(0xFFF0F6FC);
+    const cyberpunkYellow = Color(0xFFFFD700);
+    const cyberpunkRed = Color(0xFFFF073A);
+    const cyberpunkPurple = Color(0xFF9A4DFF);
+
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: cyberpunkYellow,
+      scaffoldBackgroundColor: cyberpunkBackground,
+      colorScheme: const ColorScheme.dark(
+        primary: cyberpunkYellow,
+        secondary: cyberpunkRed,
+        surface: cyberpunkSurface,
+        background: cyberpunkBackground,
+        onPrimary: cyberpunkBackground,
+        onSecondary: cyberpunkForeground,
+        onSurface: cyberpunkForeground,
+        onBackground: cyberpunkForeground,
+      ),
+      useMaterial3: true,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: cyberpunkSurface,
+        foregroundColor: cyberpunkYellow,
+        centerTitle: true,
+        elevation: 2,
+      ),
+      cardTheme: const CardThemeData(
+        color: cyberpunkSurface,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: cyberpunkYellow,
+        foregroundColor: cyberpunkBackground,
+        elevation: 6,
+      ),
+    );
+  }
+
+  static ThemeData getMidnightBlueTheme() {
+    const midnightBackground = Color(0xFF0F1419);
+    const midnightSurface = Color(0xFF1E2328);
+    const midnightForeground = Color(0xFFE6EDF3);
+    const midnightBlue = Color(0xFF4A9EFF);
+    const midnightCyan = Color(0xFF39C5CF);
+
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: midnightBlue,
+      scaffoldBackgroundColor: midnightBackground,
+      colorScheme: const ColorScheme.dark(
+        primary: midnightBlue,
+        secondary: midnightCyan,
+        surface: midnightSurface,
+        background: midnightBackground,
+        onPrimary: midnightBackground,
+        onSecondary: midnightBackground,
+        onSurface: midnightForeground,
+        onBackground: midnightForeground,
+      ),
+      useMaterial3: true,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: midnightSurface,
+        foregroundColor: midnightBlue,
+        centerTitle: true,
+        elevation: 2,
+      ),
+      cardTheme: const CardThemeData(
+        color: midnightSurface,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: midnightBlue,
+        foregroundColor: midnightBackground,
+        elevation: 6,
+      ),
+    );
+  }
+
+  static ThemeData getForestTheme() {
+    const forestBackground = Color(0xFF0B1426);
+    const forestSurface = Color(0xFF1A2332);
+    const forestForeground = Color(0xFFE8F4FD);
+    const forestGreen = Color(0xFF2DD4BF);
+    const forestDark = Color(0xFF064E3B);
+
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: forestGreen,
+      scaffoldBackgroundColor: forestBackground,
+      colorScheme: const ColorScheme.dark(
+        primary: forestGreen,
+        secondary: forestDark,
+        surface: forestSurface,
+        background: forestBackground,
+        onPrimary: forestBackground,
+        onSecondary: forestForeground,
+        onSurface: forestForeground,
+        onBackground: forestForeground,
+      ),
+      useMaterial3: true,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: forestSurface,
+        foregroundColor: forestGreen,
+        centerTitle: true,
+        elevation: 2,
+      ),
+      cardTheme: const CardThemeData(
+        color: forestSurface,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: forestGreen,
+        foregroundColor: forestBackground,
+        elevation: 6,
+      ),
+    );
+  }
+
+  static ThemeData getVampireTheme() {
+    const vampireBackground = Color(0xFF1A0D1A);
+    const vampireSurface = Color(0xFF2D1B2D);
+    const vampireForeground = Color(0xFFF5F0F5);
+    const vampireRed = Color(0xFFDC143C);
+    const vampirePurple = Color(0xFF8B008B);
+
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: vampireRed,
+      scaffoldBackgroundColor: vampireBackground,
+      colorScheme: const ColorScheme.dark(
+        primary: vampireRed,
+        secondary: vampirePurple,
+        surface: vampireSurface,
+        background: vampireBackground,
+        onPrimary: vampireForeground,
+        onSecondary: vampireForeground,
+        onSurface: vampireForeground,
+        onBackground: vampireForeground,
+      ),
+      useMaterial3: true,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: vampireSurface,
+        foregroundColor: vampireRed,
+        centerTitle: true,
+        elevation: 2,
+      ),
+      cardTheme: const CardThemeData(
+        color: vampireSurface,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: vampireRed,
+        foregroundColor: vampireBackground,
+        elevation: 6,
+      ),
+    );
+  }
+
+  static ThemeData getMatrixTheme() {
+    const matrixBackground = Color(0xFF000000);
+    const matrixSurface = Color(0xFF001100);
+    const matrixForeground = Color(0xFF00FF00);
+    const matrixGreen = Color(0xFF00FF41);
+    const matrixDarkGreen = Color(0xFF008F11);
+
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: matrixGreen,
+      scaffoldBackgroundColor: matrixBackground,
+      colorScheme: const ColorScheme.dark(
+        primary: matrixGreen,
+        secondary: matrixDarkGreen,
+        surface: matrixSurface,
+        background: matrixBackground,
+        onPrimary: matrixBackground,
+        onSecondary: matrixForeground,
+        onSurface: matrixForeground,
+        onBackground: matrixForeground,
+      ),
+      useMaterial3: true,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: matrixSurface,
+        foregroundColor: matrixGreen,
+        centerTitle: true,
+        elevation: 2,
+      ),
+      cardTheme: const CardThemeData(
+        color: matrixSurface,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: matrixGreen,
+        foregroundColor: matrixBackground,
+        elevation: 6,
+      ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: matrixForeground, fontFamily: 'Courier'),
+        bodyMedium: TextStyle(color: matrixForeground, fontFamily: 'Courier'),
+        titleLarge: TextStyle(color: matrixGreen, fontFamily: 'Courier', fontWeight: FontWeight.bold),
+        titleMedium: TextStyle(color: matrixGreen, fontFamily: 'Courier'),
+      ),
+    );
+  }
+
   static String getThemeName(AppTheme theme) {
     switch (theme) {
       case AppTheme.light:
@@ -162,6 +433,18 @@ class ThemeService {
         return 'Tema Oscuro';
       case AppTheme.dracula:
         return 'Dracula';
+      case AppTheme.neonDark:
+        return 'Neón Oscuro';
+      case AppTheme.cyberpunk:
+        return 'Cyberpunk';
+      case AppTheme.midnightBlue:
+        return 'Azul Medianoche';
+      case AppTheme.forest:
+        return 'Bosque';
+      case AppTheme.vampire:
+        return 'Vampiro';
+      case AppTheme.matrix:
+        return 'Matrix';
     }
   }
 }
@@ -208,6 +491,24 @@ class _DiarioAppState extends State<DiarioApp> {
         break;
       case AppTheme.dracula:
         themeData = ThemeService.getDraculaTheme();
+        break;
+      case AppTheme.neonDark:
+        themeData = ThemeService.getNeonDarkTheme();
+        break;
+      case AppTheme.cyberpunk:
+        themeData = ThemeService.getCyberpunkTheme();
+        break;
+      case AppTheme.midnightBlue:
+        themeData = ThemeService.getMidnightBlueTheme();
+        break;
+      case AppTheme.forest:
+        themeData = ThemeService.getForestTheme();
+        break;
+      case AppTheme.vampire:
+        themeData = ThemeService.getVampireTheme();
+        break;
+      case AppTheme.matrix:
+        themeData = ThemeService.getMatrixTheme();
         break;
     }
 
