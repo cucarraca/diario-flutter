@@ -1148,17 +1148,44 @@ class _HomePageState extends State<HomePage> {
 
       if (confirmarImport != true) return;
 
-      // Seleccionar archivo
+      // 🔧 SOLICITAR PERMISOS ANTES DE SELECCIONAR ARCHIVO
+      Map<Permission, PermissionStatus> permisos = await [
+        Permission.storage,
+        Permission.manageExternalStorage,
+        Permission.accessMediaLocation,
+      ].request();
+
+      // Seleccionar archivo con configuración mejorada para Android moderno
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['dbe', 'json'],
-        dialogTitle: 'Seleccionar archivo de backup',
+        type: FileType.any, // 🔧 CAMBIO CRÍTICO: Permitir todos los archivos
+        allowMultiple: false,
+        dialogTitle: 'Seleccionar archivo de backup (.dbe o .json)',
+        withData: true, // Leer contenido directamente
+        allowCompression: false,
       );
 
-      if (result != null) {
-        final file = File(result.files.single.path!);
-        final fileContent = await file.readAsString();
+      if (result != null && result.files.single.path != null) {
         final fileName = result.files.single.name;
+        
+        // 🔧 VERIFICAR QUE EL ARCHIVO TENGA EXTENSIÓN VÁLIDA
+        if (!fileName.toLowerCase().endsWith('.dbe') && !fileName.toLowerCase().endsWith('.json')) {
+          throw Exception('Archivo no válido. Solo se permiten archivos .dbe o .json\n\nArchivo seleccionado: $fileName');
+        }
+
+        // Leer archivo con múltiples métodos para máxima compatibilidad
+        String fileContent;
+        try {
+          if (result.files.single.bytes != null) {
+            // Leer desde bytes (más confiable en Android)
+            fileContent = utf8.decode(result.files.single.bytes!);
+          } else {
+            // Leer desde path como fallback
+            final file = File(result.files.single.path!);
+            fileContent = await file.readAsString();
+          }
+        } catch (e) {
+          throw Exception('No se puede leer el archivo seleccionado:\n${e.toString()}\n\nIntenta seleccionar el archivo desde otra ubicación.');
+        }
         
         String jsonString;
         bool isEncrypted = false;
@@ -1307,11 +1334,64 @@ class _HomePageState extends State<HomePage> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Importación cancelada - No se seleccionó archivo'),
-              backgroundColor: Colors.orange,
-            ),
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text('Sin archivo seleccionado'),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('No se seleccionó ningún archivo para importar.\n'),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue),
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '💡 Para importar un backup:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            '1. Asegúrate de tener el archivo .dbe en tu dispositivo\n'
+                            '2. Navega hasta la carpeta donde lo guardaste\n'
+                            '3. Selecciona el archivo y confirma\n'
+                            '4. Si no aparece, intenta desde "Descargas" o "Documentos"',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cerrar'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _importarEntradas(); // Reintentar
+                    },
+                    child: const Text('Intentar de Nuevo'),
+                  ),
+                ],
+              );
+            },
           );
         }
       }
@@ -1794,9 +1874,9 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
             });
           }
         },
-        // Configuración agresiva para dictado realmente continuo
-        listenFor: const Duration(minutes: 60), // 60 minutos máximo
-        pauseFor: const Duration(minutes: 5), // 5 minutos de pausa antes de parar
+        // 🎤 CONFIGURACIÓN EXTREMA PARA DICTADO CONTINUO DE 2 MINUTOS
+        listenFor: const Duration(minutes: 2), // 2 minutos como solicitaste
+        pauseFor: const Duration(seconds: 10), // Solo 10 segundos de pausa máxima
         partialResults: true, // Mostrar resultados parciales
         onSoundLevelChange: null, // Sin procesamiento de nivel de sonido
         cancelOnError: false, // No cancelar por errores menores
