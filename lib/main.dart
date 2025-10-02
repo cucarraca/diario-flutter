@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:async';
 
 void main() {
   runApp(const DiarioApp());
@@ -2098,14 +2099,16 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
   double _textScaleFactor = 1.0;
   bool _isZoomMode = false;
   
-  // 🎯 VARIABLES PARA CONTROLAR DICTADO TOTALMENTE MANUAL - MEJORADO
+  // 🎯 VARIABLES PARA CONTROLAR DICTADO TOTALMENTE MANUAL - DEFINITIVO
   String _lastRecognizedText = '';
   String _currentPartialText = '';
   bool _isManualStop = false;
   bool _isProcessingResult = false;
   int _lastResultIndex = 0;
   DateTime? _lastSpeechTime;
-  bool _continuousMode = true;
+  bool _continuousMode = false; // INICIA EN FALSE - Control 100% manual
+  String _accumulatedText = ''; // Texto acumulado sin procesar
+  Timer? _speechTimer; // Timer personalizado para control de sesión
 
   @override
   void initState() {
@@ -2129,20 +2132,26 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
         onError: (errorNotification) {
           print('🔴 Error de dictado: ${errorNotification.errorMsg}');
           if (mounted) {
+            // NO REINICIAR AUTOMÁTICAMENTE EN CASO DE ERROR
             setState(() {
               _isListening = false;
+              _continuousMode = false;
+              _isManualStop = true;
             });
             
             String mensaje = 'Error en el micrófono';
             switch(errorNotification.errorMsg) {
               case 'error_no_match':
-                mensaje = 'No se detectó voz clara. Intenta hablar más cerca.';
+                mensaje = 'No se detectó voz. Mantén el micrófono cerca y habla claramente.';
                 break;
               case 'error_audio':
-                mensaje = 'Error de audio. Verifica que el micrófono esté funcionando.';
+                mensaje = 'Error de audio. Verifica que el micrófono funcione correctamente.';
                 break;
               case 'error_permission_denied':
-                mensaje = 'Permisos de micrófono denegados. Activa los permisos.';
+                mensaje = 'Permisos de micrófono denegados. Activa los permisos en configuración.';
+                break;
+              case 'error_speech_timeout':
+                mensaje = 'Tiempo de espera agotado. Presiona el micrófono para reanudar.';
                 break;
               default:
                 mensaje = 'Error: ${errorNotification.errorMsg}';
@@ -2151,8 +2160,12 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(mensaje),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 3),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'Reintentar',
+                  onPressed: () => _startListening(),
+                ),
               ),
             );
           }
@@ -2166,27 +2179,50 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
                 _isListening = true;
               });
               _lastSpeechTime = DateTime.now();
+              
+              // INICIAR TIMER PERSONALIZADO DE 2 MINUTOS (MÁXIMO)
+              _speechTimer?.cancel();
+              _speechTimer = Timer(const Duration(minutes: 2), () {
+                if (_isListening && !_isManualStop) {
+                  print('⏰ Límite de 2 minutos alcanzado - deteniendo por seguridad');
+                  _stopListening();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('🕐 Dictado detenido tras 2 minutos. Presiona micrófono para continuar.'),
+                        backgroundColor: Colors.blue,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                }
+              });
+              
             } else if (status == 'notListening' || status == 'done') {
-              print('🟡 Reconocimiento finalizado');
-              if (_isListening && !_isManualStop && _continuousMode && _speechEnabled) {
-                // 🎯 REINICIO AUTOMÁTICO ESTILO DICTÁFONO PROFESIONAL
-                print('🔄 Reiniciando reconocimiento automáticamente...');
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  if (!_isManualStop && mounted && _speechEnabled && _continuousMode) {
+              print('🟡 Reconocimiento finalizado - estado: $status');
+              
+              // SOLO REINICIAR SI ESTÁ EN MODO CONTINUO Y NO FUE PARADA MANUAL
+              if (_continuousMode && !_isManualStop && _speechEnabled && _isListening) {
+                print('🔄 Reiniciando automáticamente (modo continuo activo)...');
+                Future.delayed(const Duration(milliseconds: 200), () {
+                  if (_continuousMode && !_isManualStop && mounted && _speechEnabled) {
                     try {
                       _startListening();
                     } catch (error) {
                       print('🔴 Error al reiniciar: $error');
                       setState(() {
                         _isListening = false;
+                        _continuousMode = false;
                       });
                     }
                   }
                 });
               } else {
+                // Parar definitivamente
                 setState(() {
                   _isListening = false;
                 });
+                _speechTimer?.cancel();
               }
             }
           }
@@ -2207,224 +2243,318 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
     if (!_speechEnabled || _isListening) return;
     
     try {
-      print('🟢 Iniciando reconocimiento de voz...');
+      print('🟢 ACTIVANDO MICRÓFONO - Control 100% Manual');
+      
+      // Limpiar estado previo
+      _speechTimer?.cancel();
+      
       setState(() {
         _isListening = true;
-        _isManualStop = false;
+        _isManualStop = false; // Resetear flag de parada manual
+        _continuousMode = true; // ACTIVAR MODO CONTINUO SOLO AL PRESIONAR BOTÓN
         _lastRecognizedText = '';
         _currentPartialText = '';
+        _accumulatedText = '';
         _isProcessingResult = false;
         _lastResultIndex = 0;
-        _continuousMode = true;
       });
 
-      // 🎯 CONFIGURACIÓN MEJORADA BASADA EN EL DICTÁFONO PROFESIONAL
+      // 🎯 CONFIGURACIÓN ÓPTIMA PARA ESCUCHA CONTINUA MANUAL
       await _speech.listen(
         onResult: (result) {
           if (mounted && !_isManualStop && _continuousMode) {
             _lastSpeechTime = DateTime.now();
             
-            print('🎤 Resultado: ${result.recognizedWords} | Final: ${result.finalResult}');
-            
-            // Procesar resultados de manera inteligente
             final newText = result.recognizedWords.trim();
             
-            if (newText.isNotEmpty) {
-              if (result.finalResult) {
-                // 🎯 RESULTADO FINAL - AÑADIR AL TEXTO
-                if (newText != _lastRecognizedText) {
-                  final processedText = _processRecognizedText(newText);
-                  _insertTextAtCursor(processedText);
+            print('🎤 RESULTADO: "${newText}" | Final: ${result.finalResult} | Confianza: ${result.confidence}');
+            
+            // PROCESAR SOLO RESULTADOS FINALES ÚNICOS
+            if (result.finalResult && newText.isNotEmpty) {
+              // Verificar que no sea duplicado
+              if (newText != _lastRecognizedText) {
+                final processedText = _processRecognizedTextAdvanced(newText);
+                
+                if (processedText.isNotEmpty) {
+                  _insertTextAtCursorAdvanced(processedText);
                   _lastRecognizedText = newText;
+                  
+                  print('✅ TEXTO PROCESADO E INSERTADO: "$processedText"');
+                } else {
+                  print('⚠️ Texto procesado está vacío, ignorando...');
                 }
               } else {
-                // 🎯 RESULTADO PARCIAL - SOLO MOSTRAR
-                _currentPartialText = newText;
+                print('⚠️ Resultado duplicado ignorado: "$newText"');
               }
+            } else if (!result.finalResult) {
+              // Solo actualizar el texto parcial para mostrar progreso
+              _currentPartialText = newText;
+              print('📝 Resultado parcial: "$newText"');
             }
           }
         },
-        // 🎯 CONFIGURACIÓN CRÍTICA PARA ESCUCHA CONTINUA
-        listenFor: const Duration(minutes: 10), // Máximo 10 minutos de escucha
-        pauseFor: const Duration(seconds: 30), // Pausas largas antes de detenerse automáticamente
-        partialResults: true,
-        cancelOnError: false,
-        listenMode: stt.ListenMode.confirmation, // Modo confirmación para mejor precisión
-        localeId: 'es_ES', // Español de España
+        // 🎯 CONFIGURACIÓN CRÍTICA PARA CONTROL MANUAL
+        listenFor: const Duration(minutes: 5), // Máximo 5 minutos por sesión
+        pauseFor: const Duration(seconds: 60), // Permitir pausas largas sin cortar
+        partialResults: true, // Mantener para feedback visual
+        cancelOnError: false, // No cancelar por errores menores
+        listenMode: stt.ListenMode.confirmation, // Modo confirmación
+        localeId: 'es_ES', // Español de España para mejor reconocimiento
+        onSoundLevelChange: (level) {
+          // Feedback visual del nivel de sonido
+          if (level > 0.1) {
+            _lastSpeechTime = DateTime.now(); // Actualizar tiempo de actividad
+          }
+        },
       );
       
+      // Mostrar confirmación visual
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.mic, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text('🎙️ Micrófono ACTIVADO - Control Manual'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      
     } catch (e) {
-      print('🔴 Error al iniciar dictado: $e');
+      print('🔴 Error al activar micrófono: $e');
       setState(() {
         _isListening = false;
+        _continuousMode = false;
       });
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al iniciar el micrófono: $e'),
+            content: Text('Error al activar micrófono: $e'),
             backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Reintentar',
+              onPressed: () => _startListening(),
+            ),
           ),
         );
       }
+    }
   }
 
-  // 🎯 FUNCIÓN PARA PROCESAR EL TEXTO RECONOCIDO (ESTILO DICTÁFONO PROFESIONAL)
-  String _processRecognizedText(String text) {
+  // 🎯 FUNCIÓN MEJORADA PARA PROCESAR TEXTO CON ORTOGRAFÍA Y PUNTUACIÓN CORRECTAS
+  String _processRecognizedTextAdvanced(String text) {
     if (text.isEmpty) return '';
     
-    // Capitalizar la primera letra
-    String processedText = _capitalizeText(text);
+    String processedText = text.trim();
     
-    // Asegurar espaciado correcto
-    processedText = _ensureProperSpacing(processedText);
+    // 1. CAPITALIZAR PRIMERA LETRA SI ES NECESARIO
+    processedText = _capitalizeTextAdvanced(processedText);
+    
+    // 2. CORREGIR ERRORES COMUNES DE DICTADO
+    processedText = _fixCommonSpeechErrors(processedText);
+    
+    // 3. ASEGURAR ESPACIADO CORRECTO
+    processedText = _ensureProperSpacingAdvanced(processedText);
+    
+    // 4. AÑADIR PUNTUACIÓN INTELIGENTE SI ES NECESARIO
+    processedText = _addIntelligentPunctuation(processedText);
     
     return processedText;
   }
-
-  // 🎯 FUNCIÓN PARA INSERTAR TEXTO EN LA POSICIÓN DEL CURSOR
-  void _insertTextAtCursor(String text) {
-    if (text.isEmpty) return;
+  
+  // 🎯 FUNCIÓN PARA CORREGIR ERRORES COMUNES DEL DICTADO
+  String _fixCommonSpeechErrors(String text) {
+    // Diccionario de correcciones comunes en español
+    final corrections = {
+      // Palabras mal interpretadas por el reconocimiento de voz
+      'ola': 'hola',
+      'chola': 'hola', 
+      'komo': 'como',
+      'cómo está': 'cómo está',
+      'ke': 'que',
+      'q': 'que',
+      'aver': 'a ver',
+      'echo': 'hecho',
+      'asta': 'hasta',
+      'valla': 'vaya',
+      'ay': 'ahí',
+      'hai': 'ahí',
+      'ahi': 'ahí',
+      // Números en palabras
+      'uno': '1',
+      'dos': '2', 
+      'tres': '3',
+      'cuatro': '4',
+      'cinco': '5',
+    };
     
-    final controller = _contenidoController;
-    final currentText = controller.text;
-    final selection = controller.selection;
+    String correctedText = text;
+    corrections.forEach((error, correction) {
+      final regex = RegExp('\\b$error\\b', caseSensitive: false);
+      correctedText = correctedText.replaceAll(regex, correction);
+    });
     
-    final newText = currentText.replaceRange(
-      selection.start,
-      selection.end,
-      text,
-    );
-    
-    controller.text = newText;
-    
-    // Posicionar cursor al final del texto insertado
-    final newOffset = selection.start + text.length;
-    controller.selection = TextSelection.fromPosition(
-      TextPosition(offset: newOffset),
-    );
+    return correctedText;
   }
-
-  // 🎯 FUNCIÓN PARA CAPITALIZAR TEXTO INTELIGENTEMENTE
-  String _capitalizeText(String text) {
+  
+  // 🎯 FUNCIÓN MEJORADA PARA CAPITALIZACIÓN INTELIGENTE
+  String _capitalizeTextAdvanced(String text) {
     if (text.isEmpty) return text;
     
     final controller = _contenidoController;
     final beforeCursor = controller.text.substring(0, controller.selection.start);
     
-    if (beforeCursor.isEmpty || _shouldCapitalize(beforeCursor)) {
-      return text[0].toUpperCase() + text.substring(1);
+    bool needsCapitalization = _shouldCapitalizeAdvanced(beforeCursor);
+    
+    if (needsCapitalization && text.isNotEmpty) {
+      // Capitalizar solo la primera letra de la primera palabra
+      String firstChar = text[0].toUpperCase();
+      String restOfText = text.length > 1 ? text.substring(1) : '';
+      
+      // Mantener espacios iniciales si los había
+      final leadingSpacesMatch = RegExp(r'^\s*').firstMatch(text);
+      final leadingSpaces = leadingSpacesMatch?.group(0) ?? '';
+      final textContent = text.substring(leadingSpaces.length);
+      
+      if (textContent.isNotEmpty) {
+        firstChar = textContent[0].toUpperCase();
+        restOfText = textContent.length > 1 ? textContent.substring(1) : '';
+        return leadingSpaces + firstChar + restOfText;
+      }
     }
     
     return text;
   }
-
-  // 🎯 FUNCIÓN PARA DETERMINAR SI NECESITA CAPITALIZACIÓN
-  bool _shouldCapitalize(String textBefore) {
-    if (textBefore.isEmpty) return true;
+    
+    return text;
+  }
+  
+  // 🎯 FUNCIÓN PARA DETERMINAR CAPITALIZACIÓN AVANZADA
+  bool _shouldCapitalizeAdvanced(String textBefore) {
+    if (textBefore.isEmpty) return true; // Inicio de documento
     
     final trimmed = textBefore.trim();
-    if (trimmed.isEmpty) return true;
+    if (trimmed.isEmpty) return true; // Solo espacios antes
     
     final lastChar = trimmed[trimmed.length - 1];
-    return ['.', '!', '?', ':', ';'].contains(lastChar);
+    
+    // Capitalizar después de signos de puntuación de fin de oración
+    final sentenceEnders = ['.', '!', '?', ':', ';'];
+    if (sentenceEnders.contains(lastChar)) return true;
+    
+    // Capitalizar después de salto de línea
+    if (textBefore.endsWith('\n')) return true;
+    
+    // Capitalizar después de patrones específicos
+    final patterns = [
+      RegExp(r'[.!?:;]\s*$'), // Puntuación seguida de espacios
+      RegExp(r'\n\s*$'), // Nueva línea seguida de espacios
+    ];
+    
+    for (final pattern in patterns) {
+      if (pattern.hasMatch(textBefore)) return true;
+    }
+    
+    return false;
   }
-
-  // 🎯 FUNCIÓN PARA ASEGURAR ESPACIADO CORRECTO
-  String _ensureProperSpacing(String text) {
+  
+  // 🎯 FUNCIÓN PARA ESPACIADO INTELIGENTE MEJORADO
+  String _ensureProperSpacingAdvanced(String text) {
+    if (text.isEmpty) return text;
+    
     final controller = _contenidoController;
-    final beforeCursor = controller.text.substring(0, controller.selection.start);
-    final afterCursor = controller.text.substring(controller.selection.start);
+    final cursorPos = controller.selection.start;
+    final textBefore = controller.text.substring(0, cursorPos);
+    final textAfter = controller.text.substring(cursorPos);
     
     String finalText = text.trim();
     
-    // Añadir espacio antes si es necesario
-    if (beforeCursor.isNotEmpty && 
-        !beforeCursor.endsWith(' ') && 
-        !beforeCursor.endsWith('\n')) {
-      finalText = ' $finalText';
+    // ESPACIADO ANTES: Añadir espacio si es necesario
+    bool needsSpaceBefore = _needsSpaceBeforeAdvanced(textBefore, finalText);
+    if (needsSpaceBefore) {
+      finalText = ' ' + finalText;
     }
     
-    // Añadir espacio después si es necesario
-    if (afterCursor.isNotEmpty && 
-        !afterCursor.startsWith(' ') && 
-        !afterCursor.startsWith('\n')) {
-      finalText = '$finalText ';
+    // ESPACIADO DESPUÉS: Añadir espacio si es necesario 
+    bool needsSpaceAfter = _needsSpaceAfterAdvanced(finalText, textAfter);
+    if (needsSpaceAfter) {
+      finalText = finalText + ' ';
     }
     
     return finalText;
   }
-
-  // 🎯 FUNCIÓN PARA DETENER EL DICTADO MANUALMENTE
-  void _stopListening() async {
-    print('🛑 Deteniendo reconocimiento manualmente...');
-    _isManualStop = true; // Marcar como parada manual PRIMERO
-    _continuousMode = false; // Desactivar modo continuo
-    _isProcessingResult = false; // Detener procesamiento
+  
+  // 🎯 FUNCIÓN PARA DETERMINAR SI NECESITA ESPACIO ANTES
+  bool _needsSpaceBeforeAdvanced(String textBefore, String newText) {
+    if (textBefore.isEmpty) return false; // Inicio de documento
+    if (textBefore.endsWith(' ') || textBefore.endsWith('\n')) return false; // Ya hay espacio
     
-    if (_speechEnabled && _isListening) {
-      try {
-        await _speech.stop();
-      } catch (e) {
-        print('🔴 Error deteniendo dictado: $e');
-      }
-    }
+    final lastChar = textBefore[textBefore.length - 1];
+    final symbolsNoSpace = [',', '.', '!', '?', ';', ':', '"', "'", ')', ']', '}', '-'];
     
-    setState(() {
-      _isListening = false;
-    });
+    // NO poner espacio después de estos símbolos
+    if (symbolsNoSpace.contains(lastChar)) return false;
     
-    // Mostrar confirmación visual de parada manual
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.stop_circle, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text('🛑 Dictado detenido'),
-            ],
-          ),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
+    // NO poner espacio si el nuevo texto empieza con puntuación
+    final punctuationStart = RegExp(r'^[.,;:!?\'")}\]]');
+    if (punctuationStart.hasMatch(newText)) return false;
     
-    // Resetear flags después de un momento
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        _isManualStop = false;
-        _lastRecognizedText = '';
-        _currentPartialText = '';
-      }
-    });
-  } 
-        !textToAdd.trim().endsWith('.') && 
-        !textToAdd.trim().endsWith('!') && 
-        !textToAdd.trim().endsWith('?') &&
-        !textToAdd.trim().endsWith(',')) {
-      
-      // Verificar si parece una frase completa (contiene verbo o estructura completa)
-      final lastWord = words.last.toLowerCase();
-      if (!_isConnectingWord(lastWord)) {
-        textToAdd += '.';
-      }
-    }
-    
-    return textToAdd;
+    // En todos los demás casos, SÍ poner espacio
+    return true;
   }
-
-  // 🎯 FUNCIÓN PARA DETECTAR PALABRAS DE CONEXIÓN
-  bool _isConnectingWord(String word) {
-    const connectingWords = [
-      'y', 'o', 'pero', 'que', 'de', 'del', 'en', 'con', 'por', 'para', 
-      'sin', 'sobre', 'entre', 'hacia', 'desde', 'hasta', 'durante',
-      'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas',
-      'este', 'esta', 'estos', 'estas', 'ese', 'esa', 'esos', 'esas',
-    ];
-    return connectingWords.contains(word.toLowerCase());
+  
+  // 🎯 FUNCIÓN PARA DETERMINAR SI NECESITA ESPACIO DESPUÉS
+  bool _needsSpaceAfterAdvanced(String newText, String textAfter) {
+    if (textAfter.isEmpty) return true; // Final del documento
+    if (textAfter.startsWith(' ') || textAfter.startsWith('\n')) return false; // Ya hay espacio
+    
+    // Si el texto después empieza con puntuación, no poner espacio
+    final punctuationAfter = RegExp(r'^[.,;:!?\'")}\]]');
+    if (punctuationAfter.hasMatch(textAfter)) return false;
+    
+    // Si el nuevo texto termina con puntuación de apertura, no poner espacio
+    final openingPunctuation = RegExp(r'[\'\"({[]$');
+    if (openingPunctuation.hasMatch(newText)) return false;
+    
+    return true;
+  }
+  
+  // 🎯 FUNCIÓN PARA AÑADIR PUNTUACIÓN INTELIGENTE
+  String _addIntelligentPunctuation(String text) {
+    // Por ahora retornamos el texto sin cambios
+    // En el futuro se puede implementar detección de pausas para añadir comas
+    return text;
+  }
+  
+  // 🎯 FUNCIÓN MEJORADA PARA INSERTAR TEXTO EN EL CURSOR
+  void _insertTextAtCursorAdvanced(String text) {
+    if (text.isEmpty) return;
+    
+    final controller = _contenidoController;
+    final selection = controller.selection;
+    final currentText = controller.text;
+    
+    // Insertar el texto en la posición del cursor
+    final beforeSelection = currentText.substring(0, selection.start);
+    final afterSelection = currentText.substring(selection.end);
+    
+    final newText = beforeSelection + text + afterSelection;
+    controller.text = newText;
+    
+    // Posicionar cursor al final del texto insertado
+    final newCursorPos = selection.start + text.length;
+    controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: newCursorPos),
+    );
+    
+    print('📝 TEXTO INSERTADO: "$text" | Nueva posición cursor: $newCursorPos');
   }
 
   void _guardarEntrada() {
@@ -2827,6 +2957,7 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
   void dispose() {
     _tituloController.dispose();
     _contenidoController.dispose();
+    _speechTimer?.cancel(); // Cancelar timer al salir
     super.dispose();
   }
 }
