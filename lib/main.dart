@@ -2503,7 +2503,7 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
     if (symbolsNoSpace.contains(lastChar)) return false;
     
     // NO poner espacio si el nuevo texto empieza con puntuación
-    final punctuationStart = RegExp(r'^[.,;:!?\'")}\]]');
+    final punctuationStart = RegExp(r'^[.,;:!?\'")\]}]');
     if (punctuationStart.hasMatch(newText)) return false;
     
     // En todos los demás casos, SÍ poner espacio
@@ -2516,11 +2516,11 @@ class _NuevaEntradaPageState extends State<NuevaEntradaPage> {
     if (textAfter.startsWith(' ') || textAfter.startsWith('\n')) return false; // Ya hay espacio
     
     // Si el texto después empieza con puntuación, no poner espacio
-    final punctuationAfter = RegExp(r'^[.,;:!?\'")}\]]');
+    final punctuationAfter = RegExp(r'^[.,;:!?\'")\]}]');
     if (punctuationAfter.hasMatch(textAfter)) return false;
     
     // Si el nuevo texto termina con puntuación de apertura, no poner espacio
-    final openingPunctuation = RegExp(r'[\'\"({[]$');
+    final openingPunctuation = RegExp(r'[\'"({[]$');
     if (openingPunctuation.hasMatch(newText)) return false;
     
     return true;
